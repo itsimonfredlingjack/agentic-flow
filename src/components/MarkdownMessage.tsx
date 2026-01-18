@@ -180,18 +180,49 @@ const parseCommandLines = (value: string): CommandLine[] => {
 function CopyButton({ value }: { value: string }) {
     const [copied, setCopied] = useState(false);
 
+    const handleCopy = async (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        if (!value) return;
+
+        try {
+            await navigator.clipboard.writeText(value);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        } catch {
+            // Fallback for older browsers
+            try {
+                const textArea = document.createElement('textarea');
+                textArea.value = value;
+                textArea.style.position = 'fixed';
+                textArea.style.left = '-999999px';
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2000);
+            } catch (fallbackErr) {
+                console.error('Copy failed:', fallbackErr);
+            }
+        }
+    };
+
     return (
         <button
             type="button"
-            onClick={() => {
-                void navigator.clipboard.writeText(value);
-                setCopied(true);
-                window.setTimeout(() => setCopied(false), 1500);
-            }}
-            className="p-1.5 rounded hover:bg-white/10 text-white/40 hover:text-white transition-colors"
+            onClick={handleCopy}
+            className={clsx(
+                "flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition-colors border",
+                copied
+                    ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-400"
+                    : "bg-white/5 border-white/10 text-white/40 hover:text-white hover:bg-white/10"
+            )}
             title="Copy Code"
         >
-            {copied ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
+            {copied ? <Check size={12} /> : <Copy size={12} />}
+            {copied ? 'Copied!' : 'Copy'}
         </button>
     );
 }
