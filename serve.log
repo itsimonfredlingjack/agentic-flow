@@ -1,0 +1,17 @@
+
+> 02_llm-creative@0.1.0 dev
+> next dev -H 0.0.0.0
+
+▲ Next.js 16.1.1 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://0.0.0.0:3000
+
+✓ Starting...
+✓ Ready in 1100ms
+○ Compiling / ...
+ GET / 200 in 10.1s (compile: 8.7s, render: 1385ms)
+○ Compiling /api/run ...
+ POST /api/run 200 in 47ms (compile: 11ms, render: 36ms)
+ GET /api/events?runId=RUN-2694 200 in 2.1s (compile: 2.1s, render: 14ms)
+ GET /api/events?runId=RUN-2694 200 in 27ms (compile: 9ms, render: 18ms)
+ GET /api/stream?runId=RUN-2694 200 in 2.2s (compile: 2.2s, render: 31ms)
