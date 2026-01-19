@@ -7,7 +7,9 @@ import { ModelSelector, ModelStatus } from './ModelSelector';
 import { CommandPalette } from './CommandPalette';
 import { RoleSelector, RoleId, RoleState } from './RoleSelector';
 import { SessionTimeline } from './SessionTimeline';
+import { TodoPanel } from './TodoPanel';
 import { Command, PanelLeftClose, PanelLeft } from 'lucide-react';
+import type { TodoItem } from '@/types';
 
 export interface OutputItem {
   id: string;
@@ -36,6 +38,8 @@ interface TerminalLayoutProps {
   onClear?: () => void;
   onOpenSettings?: () => void;
   showTimeline?: boolean;
+  todos?: TodoItem[];
+  newTodoIds?: Set<string>;
   sessions?: Array<{
     id: string;
     timestamp: string;
@@ -68,6 +72,8 @@ export function TerminalLayout({
   onClear,
   onOpenSettings,
   showTimeline = true,
+  todos = [],
+  newTodoIds = new Set(),
   sessions = [],
   agents = [],
 }: TerminalLayoutProps) {
@@ -208,6 +214,15 @@ export function TerminalLayout({
             roleStates={effectiveRoleStates}
             onSelectRole={onRoleChange}
           />
+
+          {/* Todo Panel */}
+          <div className="border-t border-[var(--border-subtle)] pt-3 mt-auto flex-1 overflow-y-auto">
+            <TodoPanel
+              todos={todos}
+              currentPhase={currentRole}
+              newTodoIds={newTodoIds}
+            />
+          </div>
         </aside>
       )}
 
