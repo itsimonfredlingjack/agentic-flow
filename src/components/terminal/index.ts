@@ -8,3 +8,6 @@ export { FileTreeBlock, isFileTreeContent } from './FileTreeBlock';
 export { ModelSelector, type ModelStatus } from './ModelSelector';
 export { HandoffBlock } from './HandoffBlock';
 export { SessionTimeline } from './SessionTimeline';
+export { TodoPanel } from './TodoPanel';
+export { TodoItem } from './TodoItem';
+export { PhaseDivider } from './PhaseDivider';
