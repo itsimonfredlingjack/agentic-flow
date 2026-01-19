@@ -121,3 +121,23 @@ export interface ActionCardProps {
      severity?: 'info' | 'warn' | 'error';
      payload?: Record<string, unknown>;
 }
+
+// --- Todo Panel Types ---
+export type TodoStatus = 'pending' | 'active' | 'complete' | 'struck';
+
+export type TodoPhase = 'PLAN' | 'BUILD' | 'REVIEW' | 'DEPLOY';
+
+export interface TodoItem {
+  id: string;
+  text: string;
+  status: TodoStatus;
+  phase: TodoPhase;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface TodoParseResult {
+  todos: TodoItem[];
+  phaseComplete: boolean;
+  handoffMessage?: string;
+}
