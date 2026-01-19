@@ -221,7 +221,7 @@ export function TerminalLayout({
     <div className="flex h-screen bg-[var(--bg-base)] text-[var(--text-primary)]">
       {/* Session Timeline Sidebar */}
       {timelineVisible && (
-        <aside className="w-48 border-r border-[var(--border-subtle)] p-3 flex flex-col gap-3">
+        <aside className="w-80 border-r border-[var(--border-subtle)] p-3 flex flex-col gap-3 transition-all duration-300 ease-in-out">
           <SessionTimeline
             currentRole={currentRole}
             roleStates={effectiveRoleStates}
@@ -281,13 +281,6 @@ export function TerminalLayout({
           </div>
         </header>
 
-        {/* Metrics Bar */}
-        <MetricsBar 
-          metrics={metrics} 
-          isCollapsed={metricsCollapsed}
-          onToggleCollapse={() => setMetricsCollapsed(!metricsCollapsed)}
-        />
-
         {/* Output Area */}
         <main ref={mainRef} className="flex-1 overflow-y-auto p-4 space-y-3">
           {outputs.length === 0 && (
@@ -313,7 +306,6 @@ export function TerminalLayout({
                 duration={output.duration}
                 timestamp={output.timestamp}
                 onCopy={() => {}}
-                onApply={output.type === 'agent' ? () => {} : undefined}
               />
             </div>
           ))}
@@ -326,8 +318,16 @@ export function TerminalLayout({
           mode={inputMode}
           onModeToggle={handleModeToggle}
           onSubmit={handleSubmit}
-          disabled={agentStatus === 'running' || agentStatus === 'thinking'}
         />
+
+        {/* Metrics Bar (Footer) */}
+        <div className="border-t border-[var(--border-subtle)]">
+          <MetricsBar
+            metrics={metrics}
+            isCollapsed={metricsCollapsed}
+            onToggleCollapse={() => setMetricsCollapsed(!metricsCollapsed)}
+          />
+        </div>
       </div>
 
       {/* Command Palette */}

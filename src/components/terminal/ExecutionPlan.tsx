@@ -28,7 +28,7 @@ export function ExecutionPlan({ tasks, newTaskIds = new Set() }: ExecutionPlanPr
   }
 
   return (
-    <div className="execution-plan">
+    <div className="execution-plan mt-4">
       <PlanProgress completed={completed} total={total} />
       
       <div className="execution-plan__tasks">

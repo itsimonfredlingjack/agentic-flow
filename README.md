@@ -1,38 +1,29 @@
-# Glass Pipeline 💎
+# Agentic Flow
 
-> **AgencyOS: Project Glass Pipeline**
-> A futuristic, glassmorphism-based AI Agent Workspace.
-
-![Glass Console](https://via.placeholder.com/800x400?text=Glass+Console+UI)
-*Note: This is a UI concept. Connect your own backend agents to bring it to life.*
+> **AgencyOS: Agentic Flow**
+> An advanced terminal interface for AI agent orchestration.
 
 ## Overview
 
-The **Glass Pipeline** re-imagines the developer experience for the Agentic Era. It moves beyond simple text chat, offering a hybrid **Terminal/Desktop** interface where AI agents work alongside you in real-time.
-
-> ⚠️ **Desktop Only** - This is a development workstation tool, not a mobile app. Best experienced on a desktop browser with a large screen.
+The **Agentic Flow** is a terminal-based workspace designed for collaborative AI development. It orchestrates specialized agents through a structured pipeline: Plan, Build, Review, and Deploy.
 
 ### Key Features
 
-- **🔮 Central Glass Console**: A unified workspace combining chat, terminal, and rich UI cards.
-- **⚡ Phase-Adaptive UI**: The interface morphs based on the agent's mode:
-    - **PLAN (Sapphire)**: Architecture and Blueprinting.
-    - **BUILD (Emerald)**: Coding and Terminal execution.
-    - **REVIEW (Amber)**: Security checks and Artifact hand-offs.
-    - **DEPLOY (Amethyst)**: Release management.
-- **🃏 Semantic Stream Cards**:
-    - **BlueprintCard**: Visualizes architecture JSONs.
-    - **BuildStatusCard**: Live progress bars for long-running tasks.
-    - **SecurityGateCard**: Policy check visualizations.
-    - **CodeBlockCard**: VS Code-style windows with syntax highlighting.
-- **🤖 AI Avatar**: A living, geometric hologram that represents the agent's cognitive state.
+- **⚡ Terminal Interface**: A command-line style interface for interacting with agents and the shell.
+- **🔄 Execution Pipeline**:
+    - **Architect (Plan)**: Designs the system architecture and implementation plan.
+    - **Engineer (Build)**: Implements the code based on the plan.
+    - **Critic (Review)**: Reviews code for security and best practices.
+    - **Deployer (Deploy)**: Manages deployment and infrastructure.
+- **📊 Live Metrics**: Real-time tracking of token usage, phase duration, and success rates.
+- **📋 Execution Plan**: Visual progress tracking of agent tasks and subtasks.
 
 ## Tech Stack
 
-- **Framework**: Next.js 15 (App Router)
-- **State Management**: XState (Federated Orchestrator)
-- **Styling**: TailwindCSS + CSS Variables (Glassmorphism)
-- **Animation**: Framer Motion
+- **Framework**: Next.js (App Router)
+- **Styling**: TailwindCSS
+- **State**: React State & Context
+- **Icons**: Lucide React
 
 ## Getting Started
 
@@ -46,13 +37,13 @@ The **Glass Pipeline** re-imagines the developer experience for the Agentic Era.
    npm run dev
    ```
 
-3. **Open the Console**
+3. **Open the Terminal**
    Navigate to `http://localhost:3000`.
 
 ## Architecture
 
-The application uses an **Orchestrator-Worker** pattern. `MissionControl.tsx` serves as the orchestrator (UI), maintaining the state machine (`missionControlMachine.ts`). It simulates agent events via a seeded loop, pushing structured data to the `AgentWorkspace`.
+The application uses a role-based state machine. The `TerminalLayout` orchestrates the flow between agents, maintaining the history of outputs and the state of the execution plan.
 
-## "The Masterpiece"
+## Design
 
-This project was built as a demonstration of "Creative AI UI". It focuses on aesthetics (Glass, Glow, Blur) and interaction density (Haptic feedback, Semantic cards) to create a premium feel.
+The UI follows a "Linear-inspired" dark mode aesthetic with high contrast, minimal chrome, and semantic color coding for different agent roles.
