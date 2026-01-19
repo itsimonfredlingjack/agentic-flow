@@ -47,11 +47,17 @@ interface CommandPaletteProps {
   onNewSession?: () => void;
   onOpenSettings?: () => void;
   onClear?: () => void;
+  onOpenInspector?: () => void;
+  onToggleInspect?: () => void;
+  onShowPlan?: () => void;
+  onExportRunSummary?: () => void;
+  onRunNextPhase?: () => void;
   sessions?: Session[];
   agents?: Agent[];
   recentItems?: RecentItem[];
   currentSessionId?: string;
   currentAgentId?: string;
+  nextRoleLabel?: string;
 }
 
 export function CommandPalette({
@@ -64,11 +70,17 @@ export function CommandPalette({
   onNewSession,
   onOpenSettings,
   onClear,
+  onOpenInspector,
+  onToggleInspect,
+  onShowPlan,
+  onExportRunSummary,
+  onRunNextPhase,
   sessions = [],
   agents = [],
   recentItems = [],
   currentSessionId,
   currentAgentId,
+  nextRoleLabel,
 }: CommandPaletteProps) {
   const [query, setQuery] = useState('');
   const [view, setView] = useState<ViewType>('main');
@@ -116,6 +128,16 @@ export function CommandPalette({
     { id: 'history', label: 'History', hint: 'Full command history', shortcut: '⌘Y', icon: <Terminal className="w-4 h-4" />, action: () => {} },
   ], []);
 
+  const engineerLabel = agents.find((agent) => agent.id === 'BUILD')?.name || 'Engineer';
+  const primaryCommands: CommandItem[] = useMemo(() => [
+    { id: 'switch-engineer', label: `switch role: ${engineerLabel}`, shortcut: '⌘2', action: () => { onSelectAgent?.('BUILD'); onClose(); } },
+    { id: 'next-phase', label: `run: next phase (${nextRoleLabel || 'Next'})`, action: () => { onRunNextPhase?.(); onClose(); } },
+    { id: 'open-inspector', label: 'open: Source Inspector', action: () => { onOpenInspector?.(); onClose(); } },
+    { id: 'toggle-mode', label: 'toggle: Focus / Inspect Mode', shortcut: '⌥I', action: () => { onToggleInspect?.(); onClose(); } },
+    { id: 'show-plan', label: 'show: Execution Plan', action: () => { onShowPlan?.(); onClose(); } },
+    { id: 'export-summary', label: 'export: Run Summary (markdown)', action: () => { onExportRunSummary?.(); onClose(); } },
+  ], [engineerLabel, nextRoleLabel, onClose, onExportRunSummary, onOpenInspector, onRunNextPhase, onSelectAgent, onShowPlan, onToggleInspect]);
+
   const actionCommands: CommandItem[] = useMemo(() => [
     { id: 'new', label: 'New Session', shortcut: '⌘N', icon: <Plus className="w-4 h-4" />, action: () => { onNewSession?.(); onClose(); } },
     { id: 'clear', label: 'Clear Output', shortcut: '⌘L', icon: <Zap className="w-4 h-4" />, action: () => { onClear?.(); onClose(); } },
@@ -131,6 +153,15 @@ export function CommandPalette({
       item.content.toLowerCase().includes(q)
     ).slice(0, 5);
   }, [recentItems, query, queryMode]);
+
+  const filteredPrimary = useMemo(() => {
+    if (queryMode !== 'search') return [];
+    if (!query) return primaryCommands;
+    const q = query.toLowerCase();
+    return primaryCommands.filter(cmd =>
+      cmd.label.toLowerCase().includes(q) || cmd.hint?.toLowerCase().includes(q)
+    );
+  }, [primaryCommands, query, queryMode]);
 
   const filteredNav = useMemo(() => {
     if (queryMode !== 'search') return [];
@@ -160,10 +191,11 @@ export function CommandPalette({
     }
     return [
       ...filteredRecent.map(r => ({ itemType: 'recent' as const, ...r })),
+      ...filteredPrimary.map(p => ({ itemType: 'action' as const, ...p })),
       ...filteredNav.map(n => ({ itemType: 'nav' as const, ...n })),
       ...filteredActions.map(a => ({ itemType: 'action' as const, ...a })),
     ];
-  }, [view, sessions, agents, filteredRecent, filteredNav, filteredActions]);
+  }, [view, sessions, agents, filteredRecent, filteredPrimary, filteredNav, filteredActions]);
 
   // Reset selected index when items change
   useEffect(() => {
@@ -296,12 +328,37 @@ export function CommandPalette({
                 </div>
               )}
 
+              {filteredPrimary.length > 0 && (
+                <div className="command-palette__section">
+                  <div className="command-palette__section-title">Commands</div>
+                  {filteredPrimary.map((cmd, idx) => {
+                    const actualIdx = filteredRecent.length + idx;
+                    const isSelected = selectedIndex === actualIdx;
+                    const itemClass = isSelected
+                      ? 'command-palette__item command-palette__item--selected'
+                      : 'command-palette__item';
+                    return (
+                      <div
+                        key={cmd.id}
+                        className={itemClass}
+                        onClick={() => handleSelect(actualIdx)}
+                      >
+                        <span className="command-palette__item-icon">{cmd.icon}</span>
+                        <span className="command-palette__item-label">{cmd.label}</span>
+                        {cmd.hint && <span className="command-palette__item-hint">{cmd.hint}</span>}
+                        {cmd.shortcut && <span className="command-palette__item-shortcut">{cmd.shortcut}</span>}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
               {/* Navigation */}
               {filteredNav.length > 0 && (
                 <div className="command-palette__section">
                   <div className="command-palette__section-title">Navigation</div>
                   {filteredNav.map((cmd, idx) => {
-                    const actualIdx = filteredRecent.length + idx;
+                    const actualIdx = filteredRecent.length + filteredPrimary.length + idx;
                     const isSelected = selectedIndex === actualIdx;
                     const itemClass = isSelected 
                       ? 'command-palette__item command-palette__item--selected' 
@@ -327,7 +384,7 @@ export function CommandPalette({
                 <div className="command-palette__section">
                   <div className="command-palette__section-title">Actions</div>
                   {filteredActions.map((cmd, idx) => {
-                    const actualIdx = filteredRecent.length + filteredNav.length + idx;
+                    const actualIdx = filteredRecent.length + filteredPrimary.length + filteredNav.length + idx;
                     const isSelected = selectedIndex === actualIdx;
                     const itemClass = isSelected 
                       ? 'command-palette__item command-palette__item--selected' 

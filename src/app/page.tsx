@@ -1,7 +1,5 @@
-import { MissionControl } from "@/components/MissionControl";
+import { redirect } from "next/navigation";
 
 export default function Home() {
-  return (
-    <MissionControl />
-  );
+  redirect("/v2");
 }

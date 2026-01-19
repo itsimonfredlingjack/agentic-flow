@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence, type Transition } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export type AgentStatus = 'ready' | 'thinking' | 'running' | 'error';
 
@@ -20,8 +20,8 @@ const STATUS_CONFIG = {
   error: { label: 'Error', color: 'var(--accent-rose)' },
 } as const;
 
-// Snappy spring animation
-const snapSpring: Transition = { type: 'spring', stiffness: 500, damping: 30 };
+// Snappy spring config
+const snapSpring = { type: 'spring' as const, stiffness: 500, damping: 30 };
 
 export function StatusPill({
   status,
@@ -60,12 +60,11 @@ export function StatusPill({
   return (
     <div className="relative" ref={pillRef}>
       <motion.div
-        className="status-pill cursor-pointer"
+        className="status-pill"
         onClick={handleClick}
         role="button"
         tabIndex={0}
         onKeyDown={(e) => e.key === 'Enter' && handleClick()}
-        // Breathing animation for active states
         animate={isActive ? {
           scale: [1, 1.03, 1],
         } : { scale: 1 }}
@@ -76,39 +75,41 @@ export function StatusPill({
         } : snapSpring}
         whileTap={{ scale: 0.97 }}
       >
-        {/* Status dot with color transition */}
+        {/* Animated dot */}
         <motion.span
           className="status-pill__dot"
           style={{ backgroundColor: config.color }}
-          animate={{
-            boxShadow: isActive 
-              ? `0 0 8px 2px ${config.color}`
-              : `0 0 0 0px ${config.color}`
-          }}
-          transition={{ duration: 0.3 }}
+          animate={isActive ? {
+            scale: [1, 1.3, 1],
+            opacity: [1, 0.7, 1],
+          } : { scale: 1, opacity: 1 }}
+          transition={isActive ? {
+            duration: 1,
+            repeat: Infinity,
+            ease: 'easeInOut'
+          } : { duration: 0.2 }}
         />
         
-        {/* Animated label with presence */}
+        {/* Status label with AnimatePresence for smooth text changes */}
         <AnimatePresence mode="wait">
           <motion.span
             key={status}
-            initial={{ opacity: 0, y: -8 }}
+            initial={{ opacity: 0, y: -4 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 8 }}
-            transition={snapSpring}
+            exit={{ opacity: 0, y: 4 }}
+            transition={{ duration: 0.15 }}
           >
             {config.label}
           </motion.span>
         </AnimatePresence>
 
-        {/* Three-dot loader for thinking */}
+        {/* Three-dot loader for thinking state */}
         {status === 'thinking' && (
           <div className="flex gap-0.5 ml-1">
             {[0, 1, 2].map((i) => (
               <motion.span
                 key={i}
-                className="w-1 h-1 rounded-full"
-                style={{ backgroundColor: config.color }}
+                className="w-1 h-1 rounded-full bg-[var(--accent-violet)]"
                 animate={{ y: [0, -3, 0] }}
                 transition={{
                   duration: 0.4,
@@ -122,7 +123,7 @@ export function StatusPill({
         )}
       </motion.div>
 
-      {/* Expanded dropdown with spring animation */}
+      {/* Expanded dropdown */}
       <AnimatePresence>
         {expanded && (agentName || modelName || sessionId) && (
           <motion.div
@@ -133,37 +134,22 @@ export function StatusPill({
             transition={snapSpring}
           >
             {agentName && (
-              <motion.div 
-                className="flex justify-between items-center mb-2"
-                initial={{ opacity: 0, x: -8 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ ...snapSpring, delay: 0.05 }}
-              >
+              <div className="flex justify-between items-center mb-2">
                 <span className="text-[var(--text-tertiary)] text-xs">Agent</span>
                 <span className="text-[var(--text-primary)] text-sm font-medium">{agentName}</span>
-              </motion.div>
+              </div>
             )}
             {modelName && (
-              <motion.div 
-                className="flex justify-between items-center mb-2"
-                initial={{ opacity: 0, x: -8 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ ...snapSpring, delay: 0.1 }}
-              >
+              <div className="flex justify-between items-center mb-2">
                 <span className="text-[var(--text-tertiary)] text-xs">Model</span>
                 <span className="text-[var(--text-secondary)] text-xs font-mono">{modelName}</span>
-              </motion.div>
+              </div>
             )}
             {sessionId && (
-              <motion.div 
-                className="flex justify-between items-center"
-                initial={{ opacity: 0, x: -8 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ ...snapSpring, delay: 0.15 }}
-              >
+              <div className="flex justify-between items-center">
                 <span className="text-[var(--text-tertiary)] text-xs">Session</span>
                 <span className="text-[var(--text-secondary)] text-xs font-mono">{sessionId}</span>
-              </motion.div>
+              </div>
             )}
           </motion.div>
         )}
