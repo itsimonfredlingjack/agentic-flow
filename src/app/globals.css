@@ -896,6 +896,188 @@ input::placeholder, textarea::placeholder {
   border: 0;
 }
 
+/* ========================================
+   TODO PANEL
+   ======================================== */
+
+.todo-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.todo-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.todo-panel__title {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-tertiary);
+}
+
+.todo-panel__count {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  font-family: var(--font-geist-mono), monospace;
+}
+
+.todo-panel__empty {
+  color: var(--text-tertiary);
+  font-style: italic;
+  font-size: 11px;
+}
+
+/* Individual Todo Item */
+.todo-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  transition: all var(--duration-normal) var(--ease-out);
+  line-height: 1.4;
+}
+
+.todo-item--pending {
+  color: var(--text-secondary);
+}
+
+.todo-item--active {
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+}
+
+.todo-item--complete {
+  color: var(--text-tertiary);
+}
+
+.todo-item--struck {
+  color: var(--text-tertiary);
+  text-decoration: line-through;
+  opacity: 0.6;
+}
+
+/* Todo LED indicator */
+.todo-item__led {
+  flex-shrink: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  margin-top: 5px;
+}
+
+.todo-item__led--pending {
+  background: var(--text-tertiary);
+}
+
+.todo-item__led--active {
+  background: var(--agent-engineer);
+  box-shadow: 0 0 6px var(--agent-engineer);
+}
+
+.todo-item__led--complete {
+  background: var(--accent-emerald);
+}
+
+.todo-item__led--struck {
+  background: var(--text-tertiary);
+  opacity: 0.5;
+}
+
+/* Todo checkbox/marker */
+.todo-item__marker {
+  flex-shrink: 0;
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.todo-item__text {
+  flex: 1;
+  word-break: break-word;
+}
+
+/* Phase divider */
+.phase-divider {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 0 4px;
+  margin-top: 4px;
+}
+
+.phase-divider__line {
+  flex: 1;
+  height: 1px;
+  background: var(--border-subtle);
+}
+
+.phase-divider__label {
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-tertiary);
+}
+
+/* Phase-specific colors */
+.phase-divider--PLAN .phase-divider__label { color: var(--agent-architect); }
+.phase-divider--BUILD .phase-divider__label { color: var(--agent-engineer); }
+.phase-divider--REVIEW .phase-divider__label { color: var(--agent-critic); }
+.phase-divider--DEPLOY .phase-divider__label { color: var(--agent-deployer); }
+
+/* Animations */
+@keyframes todo-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes todo-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+@keyframes todo-check {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.3);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.todo-item--entering {
+  animation: todo-slide-in var(--duration-slow) var(--ease-out);
+}
+
+.todo-item--active .todo-item__led {
+  animation: todo-pulse 1.5s ease-in-out infinite;
+}
+
+.todo-item--completing .todo-item__led {
+  animation: todo-check var(--duration-slow) var(--ease-bounce);
+}
+
 /* Respect reduced motion */
 @media (prefers-reduced-motion: reduce) {
   *,
