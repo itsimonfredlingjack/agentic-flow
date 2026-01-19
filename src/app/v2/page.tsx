@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { TerminalLayout, OutputItem, RoleId, RoleState, HandoffBlock } from '@/components/terminal';
 import { useAgencyClient } from '@/lib/client';
 import type { AgentIntent } from '@/types';
@@ -55,13 +55,33 @@ export default function TerminalPage() {
   const [showHandoff, setShowHandoff] = useState(true);
   const [currentModel, setCurrentModel] = useState('qwen2.5-coder:3b');
 
+  // Track processed event IDs to prevent duplicate processing
+  const processedEventsRef = useRef<Set<string>>(new Set());
+  // Track current role in a ref to avoid re-running effect on role change
+  const currentRoleRef = useRef<RoleId>(currentRole);
+  currentRoleRef.current = currentRole;
+
   const { lastEvent, client, connectionStatus } = useAgencyClient(sessionId);
 
   // Process incoming events
   useEffect(() => {
     if (!lastEvent) return;
 
+    // Generate unique event key to prevent duplicate processing
+    const eventKey = `${lastEvent.header.correlationId}-${lastEvent.type}`;
+    if (processedEventsRef.current.has(eventKey)) {
+      return; // Skip already processed events
+    }
+    processedEventsRef.current.add(eventKey);
+
+    // Limit Set size to prevent memory leak
+    if (processedEventsRef.current.size > 1000) {
+      const entries = Array.from(processedEventsRef.current);
+      processedEventsRef.current = new Set(entries.slice(-500));
+    }
+
     const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const role = currentRoleRef.current;
 
     switch (lastEvent.type) {
       case 'PROCESS_STARTED':
@@ -126,7 +146,7 @@ export default function TerminalPage() {
           content: '',
           status: 'running',
           timestamp,
-          agentRole: currentRole,
+          agentRole: role,
         }]);
         break;
 
@@ -146,13 +166,13 @@ export default function TerminalPage() {
             ];
           }
           return [...prev, {
-            id: lastEvent.header.correlationId,
+            id: `${lastEvent.header.correlationId}-completed`,
             type: 'agent',
             command: 'response',
             content: lastEvent.response.message.content,
             status: 'success',
             timestamp,
-            agentRole: currentRole,
+            agentRole: role,
           }];
         });
         break;
@@ -175,7 +195,7 @@ export default function TerminalPage() {
       case 'WORKFLOW_ERROR':
         setAgentStatus('error');
         setOutputs(prev => [...prev, {
-          id: lastEvent.header.correlationId,
+          id: `${lastEvent.header.correlationId}-error`,
           type: 'shell',
           command: 'error',
           content: lastEvent.error,
@@ -184,7 +204,7 @@ export default function TerminalPage() {
         }]);
         break;
     }
-  }, [lastEvent, currentRole]);
+  }, [lastEvent]);
 
   // Update status based on connection
   useEffect(() => {
@@ -282,6 +302,8 @@ export default function TerminalPage() {
       DEPLOY: 'locked',
     });
     setShowHandoff(false);
+    // Clear processed events tracker
+    processedEventsRef.current.clear();
   }, []);
 
   const handleClear = useCallback(() => {
