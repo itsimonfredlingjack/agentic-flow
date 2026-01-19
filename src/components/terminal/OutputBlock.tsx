@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from 'react';
+import { motion, AnimatePresence, type Transition } from 'framer-motion';
 import { ChevronDown, Check, AlertTriangle, Loader2, Copy, Play } from 'lucide-react';
 import { MarkdownMessage } from '@/components/MarkdownMessage';
 import { FileTreeBlock, isFileTreeContent } from './FileTreeBlock';
@@ -22,6 +23,10 @@ interface OutputBlockProps {
   onCopy?: () => void;
 }
 
+// Snappy spring animation
+const snapSpring: Transition = { type: 'spring', stiffness: 500, damping: 30 };
+const gentleSpring: Transition = { type: 'spring', stiffness: 400, damping: 25 };
+
 export function OutputBlock({
   id,
   type,
@@ -36,15 +41,8 @@ export function OutputBlock({
   onCopy,
 }: OutputBlockProps) {
   const [collapsed, setCollapsed] = useState(defaultCollapsed);
-  const [justAppeared, setJustAppeared] = useState(true);
   const [copied, setCopied] = useState(false);
-  const [blockFlash, setBlockFlash] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const timer = setTimeout(() => setJustAppeared(false), 300);
-    return () => clearTimeout(timer);
-  }, []);
 
   // Auto-scroll to bottom when content updates
   useEffect(() => {
@@ -60,21 +58,16 @@ export function OutputBlock({
     idle: null,
   }[status];
 
-  const blockClasses = [
-    'output-block',
-    justAppeared && 'block-enter',
-    status === 'running' && 'output-block--running',
-    status === 'error' && 'output-block--error',
-    blockFlash && 'output-block--copied',
-  ].filter(Boolean).join(' ');
+  const borderColor = {
+    running: 'var(--accent-sky)',
+    success: 'var(--accent-emerald)',
+    error: 'var(--accent-rose)',
+    idle: 'var(--border-subtle)',
+  }[status];
 
   const promptClass = type === 'shell'
     ? 'text-[var(--accent-emerald)]'
     : 'text-[var(--accent-violet)]';
-
-  const chevronClass = collapsed
-    ? 'transform -rotate-90'
-    : '';
 
   const handleCopy = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -85,16 +78,10 @@ export function OutputBlock({
     try {
       await navigator.clipboard.writeText(content);
       setCopied(true);
-      setBlockFlash(true);
       onCopy?.();
-
-      // Reset copied state after 2 seconds
       setTimeout(() => setCopied(false), 2000);
-      // Reset flash after animation
-      setTimeout(() => setBlockFlash(false), 300);
     } catch (err) {
       console.error('Failed to copy:', err);
-      // Fallback for older browsers
       try {
         const textArea = document.createElement('textarea');
         textArea.value = content;
@@ -105,9 +92,7 @@ export function OutputBlock({
         document.execCommand('copy');
         document.body.removeChild(textArea);
         setCopied(true);
-        setBlockFlash(true);
         setTimeout(() => setCopied(false), 2000);
-        setTimeout(() => setBlockFlash(false), 300);
       } catch (fallbackErr) {
         console.error('Fallback copy failed:', fallbackErr);
       }
@@ -133,7 +118,6 @@ export function OutputBlock({
 
   // Render content based on type
   const renderContent = () => {
-    // Show loading spinner for running state with no content
     if (!content && status === 'running') {
       return (
         <div className="flex items-center gap-2 text-[var(--text-tertiary)] text-sm">
@@ -143,27 +127,22 @@ export function OutputBlock({
       );
     }
 
-    // For idle/pending states with no content, just show nothing (user just sent it)
     if (!content && (status === 'idle' || status === 'success')) {
       return null;
     }
 
-    // For error with no content, show generic error
     if (!content && status === 'error') {
       return <span className="text-[var(--accent-rose)] text-sm">Command failed with no output</span>;
     }
 
-    // File tree takes priority for shell commands like tree, ls -la, etc.
     if (type === 'shell' && isFileTree) {
       return <FileTreeBlock content={content} />;
     }
 
-    // Agent responses with markdown
     if (type === 'agent' && hasMarkdown) {
       return <MarkdownMessage content={content} className="text-sm" />;
     }
 
-    // Default: monospace pre
     return (
       <pre className="font-mono text-sm text-[var(--text-primary)] whitespace-pre-wrap break-words leading-relaxed">
         {content}
@@ -171,19 +150,37 @@ export function OutputBlock({
     );
   };
 
-  // Don't render content section if there's nothing to show
   const contentElement = renderContent();
   const hasContent = contentElement !== null;
 
   return (
-    <div className={blockClasses} data-block-id={id}>
+    <motion.div
+      className="output-block"
+      data-block-id={id}
+      style={{
+        borderColor: borderColor,
+        boxShadow: status === 'running'
+          ? `0 0 12px 0 ${borderColor}40`
+          : status === 'success'
+          ? `0 0 8px 0 ${borderColor}30`
+          : status === 'error'
+          ? `0 0 8px 0 ${borderColor}30`
+          : 'none'
+      }}
+      // Only animate border/shadow changes, not entry
+      animate={{
+        borderColor: borderColor,
+      }}
+      transition={{ duration: 0.2 }}
+    >
       {/* Header */}
-      <div
+      <motion.div
         className="flex items-center gap-2 px-3 py-2 bg-[var(--bg-elevated)] border-b border-[var(--border-subtle)] cursor-pointer select-none hover:bg-[var(--bg-elevated)]/80 transition-colors"
         onClick={() => setCollapsed(!collapsed)}
         role="button"
         tabIndex={0}
         onKeyDown={(e) => e.key === 'Enter' && setCollapsed(!collapsed)}
+        whileTap={{ scale: 0.995 }}
       >
         <span className={`font-mono text-sm font-medium ${promptClass}`}>
           {type === 'shell' ? '>' : '@'}
@@ -195,12 +192,32 @@ export function OutputBlock({
           {duration !== undefined && (
             <span className="text-xs">{(duration / 1000).toFixed(1)}s</span>
           )}
-          {statusIcon}
+          
+          {/* Animated status icon */}
+          <AnimatePresence mode="wait">
+            {statusIcon && (
+              <motion.span
+                key={status}
+                initial={{ opacity: 0, scale: 0.5 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.5 }}
+                transition={snapSpring}
+              >
+                {statusIcon}
+              </motion.span>
+            )}
+          </AnimatePresence>
+
           {hasContent && (
-            <ChevronDown className={`w-4 h-4 transition-transform duration-150 ${chevronClass}`} />
+            <motion.div
+              animate={{ rotate: collapsed ? -90 : 0 }}
+              transition={{ duration: 0.15 }}
+            >
+              <ChevronDown className="w-4 h-4" />
+            </motion.div>
           )}
         </div>
-      </div>
+      </motion.div>
 
       {/* Content */}
       {!collapsed && hasContent && (
@@ -212,63 +229,68 @@ export function OutputBlock({
             {contentElement}
           </div>
 
-          {/* Actions bar - always visible when there's content */}
+          {/* Actions bar */}
           {content && (
             <div className="flex gap-2 px-3 py-2 border-t border-[var(--border-subtle)]">
-              {/* Copy button */}
-              <button
-                type="button"
-                className={`
-                  flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded transition-all duration-200
-                  ${copied
-                    ? 'text-[var(--accent-emerald)] bg-[var(--accent-emerald)]/15 border border-[var(--accent-emerald)]/40'
-                    : 'text-[var(--text-secondary)] bg-[var(--bg-elevated)] border border-[var(--border-subtle)] hover:text-[var(--text-primary)] hover:bg-[var(--border-subtle)] hover:border-[var(--border-focus)]'
-                  }
-                `}
-                onClick={handleCopy}
-              >
-                {copied ? (
-                  <>
-                    <Check className="w-3.5 h-3.5" />
-                    Copied!
-                  </>
-                ) : (
-                  <>
-                    <Copy className="w-3.5 h-3.5" />
-                    Copy
-                  </>
-                )}
-              </button>
-
-              {/* Apply button (for agent responses) */}
-              {onApply && (
-                <button
+                {/* Copy button */}
+                <motion.button
                   type="button"
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-[var(--bg-base)] bg-[var(--accent-sky)] rounded hover:opacity-90 transition-opacity"
-                  onClick={handleApply}
+                  className={`
+                    flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded transition-all duration-200
+                    ${copied
+                      ? 'text-[var(--accent-emerald)] bg-[var(--accent-emerald)]/15 border border-[var(--accent-emerald)]/40'
+                      : 'text-[var(--text-secondary)] bg-[var(--bg-elevated)] border border-[var(--border-subtle)] hover:text-[var(--text-primary)] hover:bg-[var(--border-subtle)] hover:border-[var(--border-focus)]'
+                    }
+                  `}
+                  onClick={handleCopy}
+                  whileTap={{ scale: 0.95 }}
                 >
-                  <Play className="w-3.5 h-3.5" />
-                  Apply
-                </button>
-              )}
+                  <AnimatePresence mode="wait">
+                    {copied ? (
+                      <motion.span
+                        key="copied"
+                        className="flex items-center gap-1.5"
+                        initial={{ opacity: 0, y: 4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -4 }}
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                        Copied!
+                      </motion.span>
+                    ) : (
+                      <motion.span
+                        key="copy"
+                        className="flex items-center gap-1.5"
+                        initial={{ opacity: 0, y: 4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -4 }}
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                        Copy
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
+                </motion.button>
 
-              {/* Custom actions */}
-              {actions}
-            </div>
-          )}
-        </>
-      )}
+                {/* Apply button */}
+                {onApply && (
+                  <motion.button
+                    type="button"
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-[var(--bg-base)] bg-[var(--accent-sky)] rounded hover:opacity-90 transition-opacity"
+                    onClick={handleApply}
+                    whileTap={{ scale: 0.95 }}
+                  >
+                    <Play className="w-3.5 h-3.5" />
+                    Apply
+                  </motion.button>
+                )}
 
-      {/* CSS for flash animation */}
-      <style jsx>{`
-        .output-block--copied {
-          animation: copy-flash 300ms ease-out;
-        }
-        @keyframes copy-flash {
-          0% { border-color: var(--accent-emerald); box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2); }
-          100% { border-color: var(--border-subtle); box-shadow: none; }
-        }
-      `}</style>
-    </div>
+                {/* Custom actions */}
+                {actions}
+              </div>
+            )}
+          </>
+        )}
+    </motion.div>
   );
 }

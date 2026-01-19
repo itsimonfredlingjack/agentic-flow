@@ -398,6 +398,18 @@ export function MarkdownMessage({ content, className }: MarkdownMessageProps) {
                     h1({ children }) { return <h1 className="text-xl font-bold text-white mt-6 mb-4">{children}</h1>; },
                     h2({ children }) { return <h2 className="text-lg font-bold text-white mt-5 mb-3">{children}</h2>; },
                     h3({ children }) { return <h3 className="text-md font-bold text-white mt-4 mb-2">{children}</h3>; },
+                    a({ children, href }) {
+                        return (
+                            <a
+                                href={href}
+                                className="text-[var(--accent-sky)] hover:text-[var(--accent-sky)]/80 underline decoration-[var(--accent-sky)]/30 hover:decoration-[var(--accent-sky)]/60 transition-colors"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >
+                                {children}
+                            </a>
+                        );
+                    },
                     code({ className: codeClassName, children, node, ...props }) {
                         const match = /language-(\w+)/.exec(codeClassName || '');
                         const language = normalizeLanguage(match?.[1]);
