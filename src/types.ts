@@ -141,3 +141,37 @@ export interface TodoParseResult {
   phaseComplete: boolean;
   handoffMessage?: string;
 }
+
+// --- Execution Plan Types ---
+export type TaskStatus = 'pending' | 'active' | 'complete' | 'failed' | 'skipped';
+
+export interface PlanTask {
+  id: string;
+  text: string;
+  status: TaskStatus;
+  children?: PlanTask[];
+}
+
+export interface ExecutionPlan {
+  tasks: PlanTask[];
+  source: 'PLAN' | 'BUILD';
+  createdAt: number;
+  updatedAt: number;
+}
+
+// --- Metrics Types ---
+export interface PhaseMetrics {
+  phase: 'PLAN' | 'BUILD' | 'REVIEW' | 'DEPLOY';
+  startTime: number | null;
+  endTime: number | null;
+  elapsedMs: number;
+  requests: number;
+  successes: number;
+  failures: number;
+}
+
+export interface SessionMetrics {
+  totalTokens: number;
+  phases: Record<string, PhaseMetrics>;
+  sessionStartTime: number;
+}

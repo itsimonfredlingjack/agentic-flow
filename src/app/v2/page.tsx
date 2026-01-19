@@ -3,15 +3,30 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { TerminalLayout, OutputItem, RoleId, RoleState, HandoffBlock } from '@/components/terminal';
 import { useAgencyClient } from '@/lib/client';
-import type { AgentIntent, TodoItem } from '@/types';
+import type { AgentIntent, PlanTask, SessionMetrics, PhaseMetrics } from '@/types';
 import type { AgentStatus } from '@/components/terminal/StatusPill';
 import { ROLES } from '@/lib/roles';
-import { parseTodos, matchTodoUpdate } from '@/lib/todoParser';
+import { parsePlanTasks, updateTaskStatus, findTaskByText } from '@/lib/planParser';
 
 // Generate a run ID
 function generateRunId(): string {
   const num = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
   return `RUN-${num}`;
+}
+
+// Create initial metrics
+function createInitialMetrics(): SessionMetrics {
+  const now = Date.now();
+  return {
+    totalTokens: 0,
+    sessionStartTime: now,
+    phases: {
+      PLAN: { phase: 'PLAN', startTime: null, endTime: null, elapsedMs: 0, requests: 0, successes: 0, failures: 0 },
+      BUILD: { phase: 'BUILD', startTime: null, endTime: null, elapsedMs: 0, requests: 0, successes: 0, failures: 0 },
+      REVIEW: { phase: 'REVIEW', startTime: null, endTime: null, elapsedMs: 0, requests: 0, successes: 0, failures: 0 },
+      DEPLOY: { phase: 'DEPLOY', startTime: null, endTime: null, elapsedMs: 0, requests: 0, successes: 0, failures: 0 },
+    },
+  };
 }
 
 // Demo outputs showing the agent flow
@@ -24,16 +39,11 @@ const demoOutputs: OutputItem[] = [
 
 I've analyzed the requirements and identified the following components:
 
-### Architecture Overview
-- **Frontend**: React 19 with Next.js 16
-- **State**: XState for agent orchestration
-- **Styling**: Tailwind + CSS variables
-
-### Implementation Plan
-1. Set up base terminal UI components
-2. Implement agent state machine
-3. Add role-based response handling
-4. Create transition animations
+### Execution Plan
+- [ ] Set up base terminal UI components
+- [ ] Implement agent state machine
+- [ ] Add role-based response handling
+- [ ] Create transition animations
 
 Ready to hand off to the Engineer for implementation.`,
     status: 'success',
@@ -41,6 +51,9 @@ Ready to hand off to the Engineer for implementation.`,
     agentRole: 'PLAN',
   },
 ];
+
+// Parse tasks from demo output for initial state
+const initialTasks = parsePlanTasks(demoOutputs[0].content);
 
 export default function TerminalPage() {
   const [sessionId, setSessionId] = useState(() => generateRunId());
@@ -55,29 +68,128 @@ export default function TerminalPage() {
   });
   const [showHandoff, setShowHandoff] = useState(true);
   const [currentModel, setCurrentModel] = useState('qwen2.5-coder:3b');
-  const [todos, setTodos] = useState<TodoItem[]>([]);
-  const [newTodoIds, setNewTodoIds] = useState<Set<string>>(new Set());
+  const [planTasks, setPlanTasks] = useState<PlanTask[]>(initialTasks);
+  const [newTaskIds, setNewTaskIds] = useState<Set<string>>(new Set());
+  const [metrics, setMetrics] = useState<SessionMetrics>(() => {
+    // Initialize with demo data
+    const initial = createInitialMetrics();
+    initial.totalTokens = 342; // Demo tokens
+    initial.phases.PLAN = {
+      ...initial.phases.PLAN,
+      startTime: Date.now() - 15000,
+      endTime: Date.now() - 3000,
+      elapsedMs: 12000,
+      requests: 1,
+      successes: 1,
+      failures: 0,
+    };
+    return initial;
+  });
 
   // Track processed event IDs to prevent duplicate processing
   const processedEventsRef = useRef<Set<string>>(new Set());
   // Track current role in a ref to avoid re-running effect on role change
   const currentRoleRef = useRef<RoleId>(currentRole);
   currentRoleRef.current = currentRole;
+  // Track phase start times for elapsed calculation
+  const phaseStartRef = useRef<number | null>(null);
 
   const { lastEvent, client, connectionStatus } = useAgencyClient(sessionId);
+
+  // Update phase timing when role changes
+  useEffect(() => {
+    const now = Date.now();
+    
+    setMetrics(prev => {
+      const updated = { ...prev, phases: { ...prev.phases } };
+      
+      // End timing for previous phases that are active
+      Object.keys(updated.phases).forEach(key => {
+        const phase = updated.phases[key];
+        if (phase.startTime && !phase.endTime && key !== currentRole) {
+          updated.phases[key] = {
+            ...phase,
+            endTime: now,
+            elapsedMs: now - phase.startTime,
+          };
+        }
+      });
+      
+      // Start timing for current phase if not already started
+      if (!updated.phases[currentRole].startTime) {
+        updated.phases[currentRole] = {
+          ...updated.phases[currentRole],
+          startTime: now,
+        };
+      }
+      
+      return updated;
+    });
+    
+    phaseStartRef.current = Date.now();
+  }, [currentRole]);
+
+  // Update elapsed time for active phase
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setMetrics(prev => {
+        const phase = prev.phases[currentRole];
+        if (phase.startTime && !phase.endTime) {
+          return {
+            ...prev,
+            phases: {
+              ...prev.phases,
+              [currentRole]: {
+                ...phase,
+                elapsedMs: Date.now() - phase.startTime,
+              },
+            },
+          };
+        }
+        return prev;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [currentRole]);
+
+  // Extract and update task status from response text
+  const processTaskUpdates = useCallback((responseText: string) => {
+    const statusPatterns = [
+      { regex: /- \[>\]\s*(?:Currently working on:|Active:)?\s*(.+)/gi, status: 'active' as const },
+      { regex: /- \[x\]\s*(?:Completed:|Done:)?\s*(.+)/gi, status: 'complete' as const },
+      { regex: /- \[!\]\s*(?:Failed:)?\s*(.+)/gi, status: 'failed' as const },
+      { regex: /- \[~\]\s*(?:Skipped:)?\s*(.+)/gi, status: 'skipped' as const },
+    ];
+
+    setPlanTasks(currentTasks => {
+      let updatedTasks = [...currentTasks];
+      
+      for (const { regex, status } of statusPatterns) {
+        let match;
+        while ((match = regex.exec(responseText)) !== null) {
+          const taskText = match[1].trim();
+          const foundTask = findTaskByText(updatedTasks, taskText);
+          if (foundTask) {
+            updatedTasks = updateTaskStatus(updatedTasks, foundTask.id, status);
+          }
+        }
+      }
+
+      return updatedTasks;
+    });
+  }, []);
 
   // Process incoming events
   useEffect(() => {
     if (!lastEvent) return;
 
-    // Generate unique event key to prevent duplicate processing
     const eventKey = `${lastEvent.header.correlationId}-${lastEvent.type}`;
     if (processedEventsRef.current.has(eventKey)) {
-      return; // Skip already processed events
+      return;
     }
     processedEventsRef.current.add(eventKey);
 
-    // Limit Set size to prevent memory leak
     if (processedEventsRef.current.size > 1000) {
       const entries = Array.from(processedEventsRef.current);
       processedEventsRef.current = new Set(entries.slice(-500));
@@ -142,6 +254,17 @@ export default function TerminalPage() {
 
       case 'OLLAMA_CHAT_STARTED':
         setAgentStatus('thinking');
+        // Increment request count for current phase
+        setMetrics(prev => ({
+          ...prev,
+          phases: {
+            ...prev.phases,
+            [role]: {
+              ...prev.phases[role],
+              requests: prev.phases[role].requests + 1,
+            },
+          },
+        }));
         setOutputs(prev => [...prev, {
           id: lastEvent.header.correlationId,
           type: 'agent',
@@ -155,6 +278,21 @@ export default function TerminalPage() {
 
       case 'OLLAMA_CHAT_COMPLETED':
         setAgentStatus('ready');
+        
+        // Update metrics: success count and tokens
+        const tokenCount = lastEvent.response?.eval_count || 0;
+        setMetrics(prev => ({
+          ...prev,
+          totalTokens: prev.totalTokens + tokenCount,
+          phases: {
+            ...prev.phases,
+            [role]: {
+              ...prev.phases[role],
+              successes: prev.phases[role].successes + 1,
+            },
+          },
+        }));
+
         setOutputs(prev => {
           const last = prev[prev.length - 1];
           if (last && last.type === 'agent' && last.status === 'running') {
@@ -179,46 +317,21 @@ export default function TerminalPage() {
           }];
         });
 
-        // Parse todos from agent response
+        // Process plan tasks from agent response
         if (lastEvent.response?.message?.content) {
           const responseContent = lastEvent.response.message.content;
-          const parseResult = parseTodos(responseContent, role);
-
-          if (parseResult.todos.length > 0) {
-            setTodos(prev => {
-              const newTodos = [...prev];
-              const addedIds = new Set<string>();
-
-              for (const parsedTodo of parseResult.todos) {
-                // Check if this updates an existing todo
-                const existingMatch = matchTodoUpdate(parsedTodo.text, newTodos);
-
-                if (existingMatch) {
-                  // Update existing todo status
-                  const idx = newTodos.findIndex(t => t.id === existingMatch.todo.id);
-                  if (idx !== -1) {
-                    newTodos[idx] = {
-                      ...newTodos[idx],
-                      status: parsedTodo.status,
-                      updatedAt: Date.now(),
-                    };
-                  }
-                } else {
-                  // Add new todo
-                  newTodos.push(parsedTodo);
-                  addedIds.add(parsedTodo.id);
-                }
-              }
-
-              // Track new todos for animation
-              if (addedIds.size > 0) {
-                setNewTodoIds(addedIds);
-                // Clear animation flags after delay
-                setTimeout(() => setNewTodoIds(new Set()), 500);
-              }
-
-              return newTodos;
-            });
+          
+          if (role === 'PLAN') {
+            const newTasks = parsePlanTasks(responseContent);
+            if (newTasks.length > 0) {
+              setPlanTasks(newTasks);
+              const ids = new Set(newTasks.map(t => t.id));
+              newTasks.forEach(t => t.children?.forEach(c => ids.add(c.id)));
+              setNewTaskIds(ids);
+              setTimeout(() => setNewTaskIds(new Set()), 500);
+            }
+          } else {
+            processTaskUpdates(responseContent);
           }
         }
         break;
@@ -226,6 +339,17 @@ export default function TerminalPage() {
       case 'OLLAMA_ERROR':
       case 'OLLAMA_CHAT_FAILED':
         setAgentStatus('error');
+        // Update metrics: failure count
+        setMetrics(prev => ({
+          ...prev,
+          phases: {
+            ...prev.phases,
+            [role]: {
+              ...prev.phases[role],
+              failures: prev.phases[role].failures + 1,
+            },
+          },
+        }));
         setOutputs(prev => {
           const last = prev[prev.length - 1];
           if (last && last.type === 'agent' && last.status === 'running') {
@@ -250,7 +374,7 @@ export default function TerminalPage() {
         }]);
         break;
     }
-  }, [lastEvent]);
+  }, [lastEvent, processTaskUpdates]);
 
   // Update status based on connection
   useEffect(() => {
@@ -263,14 +387,11 @@ export default function TerminalPage() {
 
   // Handle role change
   const handleRoleChange = useCallback((newRole: RoleId) => {
-    // Update role states
     setRoleStates(prev => {
       const updated = { ...prev };
-      // Mark current role as completed if it was active
       if (prev[currentRole] === 'active') {
         updated[currentRole] = 'completed';
       }
-      // Mark new role as active
       updated[newRole] = 'active';
       return updated;
     });
@@ -278,7 +399,6 @@ export default function TerminalPage() {
     setCurrentRole(newRole);
     setShowHandoff(false);
 
-    // Update model based on role
     const roleModel = ROLES[newRole]?.model || 'qwen2.5-coder:3b';
     setCurrentModel(roleModel);
   }, [currentRole]);
@@ -313,7 +433,6 @@ export default function TerminalPage() {
       options: { temperature: 0.2 },
     };
 
-    // Add the user's prompt to outputs immediately
     const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     setOutputs(prev => [...prev, {
       id: `user-${Date.now()}`,
@@ -348,9 +467,9 @@ export default function TerminalPage() {
       DEPLOY: 'locked',
     });
     setShowHandoff(false);
-    setTodos([]);
-    setNewTodoIds(new Set());
-    // Clear processed events tracker
+    setPlanTasks([]);
+    setNewTaskIds(new Set());
+    setMetrics(createInitialMetrics());
     processedEventsRef.current.clear();
   }, []);
 
@@ -365,7 +484,6 @@ export default function TerminalPage() {
     { id: 'DEPLOY', name: 'Deployer', description: 'Deploy, infrastructure', model: ROLES.DEPLOY.model, isActive: currentRole === 'DEPLOY' },
   ];
 
-  // Determine next role for handoff
   const getNextRole = (): RoleId | null => {
     const order: RoleId[] = ['PLAN', 'BUILD', 'REVIEW', 'DEPLOY'];
     const currentIndex = order.indexOf(currentRole);
@@ -393,11 +511,11 @@ export default function TerminalPage() {
         onNewSession={handleNewSession}
         onClear={handleClear}
         agents={agents}
-        todos={todos}
-        newTodoIds={newTodoIds}
+        planTasks={planTasks}
+        newTaskIds={newTaskIds}
+        metrics={metrics}
       />
 
-      {/* Handoff overlay - shown when a phase is complete */}
       {showHandoff && nextRole && (
         <div className="fixed inset-0 flex items-center justify-center bg-black/50 z-50">
           <HandoffBlock

@@ -7,9 +7,10 @@ import { ModelSelector, ModelStatus } from './ModelSelector';
 import { CommandPalette } from './CommandPalette';
 import { RoleSelector, RoleId, RoleState } from './RoleSelector';
 import { SessionTimeline } from './SessionTimeline';
-import { TodoPanel } from './TodoPanel';
+import { ExecutionPlan } from './ExecutionPlan';
+import { MetricsBar } from './MetricsBar';
 import { Command, PanelLeftClose, PanelLeft } from 'lucide-react';
-import type { TodoItem } from '@/types';
+import type { PlanTask, SessionMetrics } from '@/types';
 
 export interface OutputItem {
   id: string;
@@ -38,8 +39,9 @@ interface TerminalLayoutProps {
   onClear?: () => void;
   onOpenSettings?: () => void;
   showTimeline?: boolean;
-  todos?: TodoItem[];
-  newTodoIds?: Set<string>;
+  planTasks?: PlanTask[];
+  newTaskIds?: Set<string>;
+  metrics?: SessionMetrics;
   sessions?: Array<{
     id: string;
     timestamp: string;
@@ -55,6 +57,18 @@ interface TerminalLayoutProps {
     isActive: boolean;
   }>;
 }
+
+// Default empty metrics
+const DEFAULT_METRICS: SessionMetrics = {
+  totalTokens: 0,
+  sessionStartTime: Date.now(),
+  phases: {
+    PLAN: { phase: 'PLAN', startTime: null, endTime: null, elapsedMs: 0, requests: 0, successes: 0, failures: 0 },
+    BUILD: { phase: 'BUILD', startTime: null, endTime: null, elapsedMs: 0, requests: 0, successes: 0, failures: 0 },
+    REVIEW: { phase: 'REVIEW', startTime: null, endTime: null, elapsedMs: 0, requests: 0, successes: 0, failures: 0 },
+    DEPLOY: { phase: 'DEPLOY', startTime: null, endTime: null, elapsedMs: 0, requests: 0, successes: 0, failures: 0 },
+  },
+};
 
 export function TerminalLayout({
   sessionId,
@@ -72,14 +86,16 @@ export function TerminalLayout({
   onClear,
   onOpenSettings,
   showTimeline = true,
-  todos = [],
-  newTodoIds = new Set(),
+  planTasks = [],
+  newTaskIds = new Set(),
+  metrics = DEFAULT_METRICS,
   sessions = [],
   agents = [],
 }: TerminalLayoutProps) {
   const [inputMode, setInputMode] = useState<InputMode>('agent');
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [timelineVisible, setTimelineVisible] = useState(showTimeline);
+  const [metricsCollapsed, setMetricsCollapsed] = useState(false);
   const [autoScroll, setAutoScroll] = useState(true);
   const [recentItems, setRecentItems] = useState<Array<{
     id: string;
@@ -182,10 +198,7 @@ export function TerminalLayout({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [onClear, onNewSession]);
 
-  // Auto-scroll to bottom when:
-  // 1. New outputs appear
-  // 2. Content updates during streaming
-  // 3. Status changes (running → success/error)
+  // Auto-scroll to bottom
   useEffect(() => {
     if (autoScroll) {
       outputsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -215,12 +228,11 @@ export function TerminalLayout({
             onSelectRole={onRoleChange}
           />
 
-          {/* Todo Panel */}
+          {/* Execution Plan Panel */}
           <div className="border-t border-[var(--border-subtle)] pt-3 mt-auto flex-1 overflow-y-auto">
-            <TodoPanel
-              todos={todos}
-              currentPhase={currentRole}
-              newTodoIds={newTodoIds}
+            <ExecutionPlan
+              tasks={planTasks}
+              newTaskIds={newTaskIds}
             />
           </div>
         </aside>
@@ -268,6 +280,13 @@ export function TerminalLayout({
             />
           </div>
         </header>
+
+        {/* Metrics Bar */}
+        <MetricsBar 
+          metrics={metrics} 
+          isCollapsed={metricsCollapsed}
+          onToggleCollapse={() => setMetricsCollapsed(!metricsCollapsed)}
+        />
 
         {/* Output Area */}
         <main ref={mainRef} className="flex-1 overflow-y-auto p-4 space-y-3">
