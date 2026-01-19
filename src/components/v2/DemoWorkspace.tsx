@@ -12,8 +12,6 @@ import {
   AIPairPanel,
   CodeCanvas
 } from '@/components/terminal';
-import { useAgencyClient } from '@/lib/client';
-import type { AgentIntent } from '@/types';
 import type { AgentStatus } from '@/components/terminal/StatusPill';
 import { ROLES } from '@/lib/roles';
 import { Sparkles, Maximize2 } from 'lucide-react';
@@ -73,8 +71,6 @@ export function DemoWorkspace() {
   const [phaseGateOpen, setPhaseGateOpen] = useState(false);
   const [aiPairOpen, setAIPairOpen] = useState(false);
   const [canvasOpen, setCanvasOpen] = useState(false);
-
-  const { lastEvent, client } = useAgencyClient(sessionId);
 
   const phaseTransition: PhaseTransition = {
     from: 'PLAN',
