@@ -3,9 +3,10 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { TerminalLayout, OutputItem, RoleId, RoleState, HandoffBlock } from '@/components/terminal';
 import { useAgencyClient } from '@/lib/client';
-import type { AgentIntent } from '@/types';
+import type { AgentIntent, TodoItem } from '@/types';
 import type { AgentStatus } from '@/components/terminal/StatusPill';
 import { ROLES } from '@/lib/roles';
+import { parseTodos, matchTodoUpdate } from '@/lib/todoParser';
 
 // Generate a run ID
 function generateRunId(): string {
@@ -54,6 +55,8 @@ export default function TerminalPage() {
   });
   const [showHandoff, setShowHandoff] = useState(true);
   const [currentModel, setCurrentModel] = useState('qwen2.5-coder:3b');
+  const [todos, setTodos] = useState<TodoItem[]>([]);
+  const [newTodoIds, setNewTodoIds] = useState<Set<string>>(new Set());
 
   // Track processed event IDs to prevent duplicate processing
   const processedEventsRef = useRef<Set<string>>(new Set());
@@ -175,6 +178,49 @@ export default function TerminalPage() {
             agentRole: role,
           }];
         });
+
+        // Parse todos from agent response
+        if (lastEvent.response?.message?.content) {
+          const responseContent = lastEvent.response.message.content;
+          const parseResult = parseTodos(responseContent, role);
+
+          if (parseResult.todos.length > 0) {
+            setTodos(prev => {
+              const newTodos = [...prev];
+              const addedIds = new Set<string>();
+
+              for (const parsedTodo of parseResult.todos) {
+                // Check if this updates an existing todo
+                const existingMatch = matchTodoUpdate(parsedTodo.text, newTodos);
+
+                if (existingMatch) {
+                  // Update existing todo status
+                  const idx = newTodos.findIndex(t => t.id === existingMatch.todo.id);
+                  if (idx !== -1) {
+                    newTodos[idx] = {
+                      ...newTodos[idx],
+                      status: parsedTodo.status,
+                      updatedAt: Date.now(),
+                    };
+                  }
+                } else {
+                  // Add new todo
+                  newTodos.push(parsedTodo);
+                  addedIds.add(parsedTodo.id);
+                }
+              }
+
+              // Track new todos for animation
+              if (addedIds.size > 0) {
+                setNewTodoIds(addedIds);
+                // Clear animation flags after delay
+                setTimeout(() => setNewTodoIds(new Set()), 500);
+              }
+
+              return newTodos;
+            });
+          }
+        }
         break;
 
       case 'OLLAMA_ERROR':
@@ -302,6 +348,8 @@ export default function TerminalPage() {
       DEPLOY: 'locked',
     });
     setShowHandoff(false);
+    setTodos([]);
+    setNewTodoIds(new Set());
     // Clear processed events tracker
     processedEventsRef.current.clear();
   }, []);
@@ -345,6 +393,8 @@ export default function TerminalPage() {
         onNewSession={handleNewSession}
         onClear={handleClear}
         agents={agents}
+        todos={todos}
+        newTodoIds={newTodoIds}
       />
 
       {/* Handoff overlay - shown when a phase is complete */}
