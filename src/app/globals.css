@@ -14,18 +14,18 @@
   --text-tertiary: #5c5c5e;
 
   /* Saturated Accent Colors */
-  --accent-emerald: #10b981;   /* Shell prompt, success */
-  --accent-violet: #8b5cf6;    /* Agent prompt, AI context */
-  --accent-sky: #0ea5e9;       /* Primary, focus, brand */
-  --accent-cyan: #06b6d4;      /* Links, info */
-  --accent-amber: #f59e0b;     /* Warnings */
-  --accent-rose: #f43f5e;      /* Errors */
+  --accent-emerald: #059669;   /* Shell prompt, success */
+  --accent-violet: #7c3aed;    /* Agent prompt, AI context */
+  --accent-sky: #0284c7;       /* Primary, focus, brand */
+  --accent-cyan: #0891b2;      /* Links, info */
+  --accent-amber: #d97706;     /* Warnings */
+  --accent-rose: #e11d48;      /* Errors */
 
   /* Agent-specific Colors */
-  --agent-architect: #5e8ce6;  /* Sapphire - planning */
-  --agent-engineer: #10b981;   /* Emerald - building */
-  --agent-critic: #f59e0b;     /* Amber - reviewing */
-  --agent-deployer: #8b5cf6;   /* Violet - deploying */
+  --agent-architect: #2563eb;  /* Sapphire - planning */
+  --agent-engineer: #059669;   /* Emerald - building */
+  --agent-critic: #d97706;     /* Amber - reviewing */
+  --agent-deployer: #7c3aed;   /* Violet - deploying */
 
   /* Semantic aliases */
   --color-shell: var(--accent-emerald);

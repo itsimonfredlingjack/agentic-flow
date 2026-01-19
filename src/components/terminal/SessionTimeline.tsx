@@ -28,8 +28,8 @@ export function SessionTimeline({
   onSelectRole,
 }: SessionTimelineProps) {
   return (
-    <div className="session-timeline">
-      <div className="session-timeline__title">Session Flow</div>
+    <div className="session-timeline bg-black/20 p-4 rounded-lg border border-[var(--border-subtle)]">
+      <div className="session-timeline__title mb-4">Pipeline Status</div>
 
       {TIMELINE_ROLES.map((role, index) => {
         const state = roleStates[role.id];
@@ -57,7 +57,7 @@ export function SessionTimeline({
             <div
               onClick={() => canClick && onSelectRole(role.id)}
               className={`
-                session-timeline__item
+                session-timeline__item py-3
                 ${isActive ? 'session-timeline__item--active' : ''}
                 ${isCompleted ? 'session-timeline__item--completed' : ''}
                 ${isUpcoming ? 'session-timeline__item--upcoming' : ''}

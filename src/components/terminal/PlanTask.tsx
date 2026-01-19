@@ -55,7 +55,7 @@ export function PlanTask({
   const connector = isChild ? (isLastChild ? '└─' : '├─') : '';
 
   return (
-    <div className={`plan-task ${config.textClass} ${isNew ? 'plan-task--entering' : ''}`}>
+    <div className={`plan-task py-1 text-sm ${config.textClass} ${isNew ? 'plan-task--entering' : ''}`}>
       {isChild && (
         <span className="plan-task__connector">{connector}</span>
       )}

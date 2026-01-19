@@ -19,7 +19,6 @@ interface OutputBlockProps {
   timestamp?: string;
   defaultCollapsed?: boolean;
   actions?: React.ReactNode;
-  onApply?: () => void;
   onCopy?: () => void;
 }
 
@@ -37,7 +36,6 @@ export function OutputBlock({
   timestamp,
   defaultCollapsed = false,
   actions,
-  onApply,
   onCopy,
 }: OutputBlockProps) {
   const [collapsed, setCollapsed] = useState(defaultCollapsed);
@@ -99,12 +97,6 @@ export function OutputBlock({
     }
   };
 
-  const handleApply = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    onApply?.();
-  };
-
   // Content type detection
   const hasMarkdown = content && (
     content.includes('```') ||
@@ -144,7 +136,7 @@ export function OutputBlock({
     }
 
     return (
-      <pre className="font-mono text-sm text-[var(--text-primary)] whitespace-pre-wrap break-words leading-relaxed">
+      <pre className="font-mono text-sm text-[var(--text-primary)] whitespace-pre-wrap break-words leading-relaxed bg-black/30 p-4 rounded-md border border-[var(--border-subtle)] my-2 shadow-inner">
         {content}
       </pre>
     );
@@ -271,19 +263,6 @@ export function OutputBlock({
                     )}
                   </AnimatePresence>
                 </motion.button>
-
-                {/* Apply button */}
-                {onApply && (
-                  <motion.button
-                    type="button"
-                    className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-[var(--bg-base)] bg-[var(--accent-sky)] rounded hover:opacity-90 transition-opacity"
-                    onClick={handleApply}
-                    whileTap={{ scale: 0.95 }}
-                  >
-                    <Play className="w-3.5 h-3.5" />
-                    Apply
-                  </motion.button>
-                )}
 
                 {/* Custom actions */}
                 {actions}
