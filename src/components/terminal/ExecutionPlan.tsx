@@ -7,8 +7,6 @@ export interface ExecutionTask {
   id: string;
   text: string;
   status: 'pending' | 'in-progress' | 'completed';
-  eta?: string;
-  progress?: number;
 }
 
 interface ExecutionPlanProps {
@@ -22,7 +20,7 @@ export function ExecutionPlan({ tasks, title = "EXECUTION PLAN", onSelectTask }:
   const progress = tasks.length > 0 ? (completedCount / tasks.length) * 100 : 0;
   const nowTasks = tasks.filter(t => t.status === 'in-progress');
   const nextTasks = tasks.filter(t => t.status === 'pending');
-  const completedTasks = tasks.filter(t => t.status === 'completed');
+  const laterTasks = tasks.filter(t => t.status === 'completed');
 
   const renderTasks = (groupTasks: ExecutionTask[]) => {
     if (groupTasks.length === 0) {
@@ -35,20 +33,7 @@ export function ExecutionPlan({ tasks, title = "EXECUTION PLAN", onSelectTask }:
       );
     }
 
-    return groupTasks.map((task) => {
-      const normalizedProgress = typeof task.progress === 'number'
-        ? Math.min(Math.max(task.progress, 0), 1)
-        : task.status === 'completed'
-          ? 1
-          : task.status === 'in-progress'
-            ? 0.25
-            : 0;
-      const width = 10;
-      const filled = Math.round(normalizedProgress * width);
-      const bar = `${'█'.repeat(filled)}${'░'.repeat(Math.max(width - filled, 0))}`;
-      const percent = Math.round(normalizedProgress * 100);
-
-      return (
+    return groupTasks.map((task) => (
       <div key={task.id} className="execution-plan__task-group">
         <button
           type="button"
@@ -66,21 +51,9 @@ export function ExecutionPlan({ tasks, title = "EXECUTION PLAN", onSelectTask }:
             )}
           </span>
           <span className="plan-task__text">{task.text}</span>
-          <span className="plan-task__bar">[{bar}]</span>
-          <span className="plan-task__percent">{percent}%</span>
-          {task.eta && <span className="plan-task__eta">{task.eta}</span>}
-          {task.status === 'completed' && <span className="plan-task__done">✓ DONE</span>}
         </button>
       </div>
-      );
-    });
-  };
-
-  const asciiBar = () => {
-    const width = 12;
-    const filled = Math.round((progress / 100) * width);
-    const bar = `${'█'.repeat(filled)}${'░'.repeat(Math.max(width - filled, 0))}`;
-    return `[${bar}] ${Math.round(progress)}%`;
+    ));
   };
 
   return (
@@ -99,7 +72,6 @@ export function ExecutionPlan({ tasks, title = "EXECUTION PLAN", onSelectTask }:
             style={{ width: `${progress}%` }}
           />
         </div>
-        <div className="plan-progress__ascii">{asciiBar()}</div>
       </div>
 
       {/* Task List */}
@@ -113,16 +85,16 @@ export function ExecutionPlan({ tasks, title = "EXECUTION PLAN", onSelectTask }:
         ) : (
           <>
             <div className="execution-plan__section">
-              <div className="execution-plan__section-title">NOW</div>
+              <div className="execution-plan__section-title">Now</div>
               {renderTasks(nowTasks)}
             </div>
             <div className="execution-plan__section">
-              <div className="execution-plan__section-title">NEXT</div>
+              <div className="execution-plan__section-title">Next</div>
               {renderTasks(nextTasks)}
             </div>
             <div className="execution-plan__section">
-              <div className="execution-plan__section-title">COMPLETED</div>
-              {renderTasks(completedTasks)}
+              <div className="execution-plan__section-title">Later</div>
+              {renderTasks(laterTasks)}
             </div>
           </>
         )}

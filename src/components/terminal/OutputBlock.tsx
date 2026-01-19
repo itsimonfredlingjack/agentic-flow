@@ -50,18 +50,6 @@ export function OutputBlock({
   const [prevStatus, setPrevStatus] = useState(status);
   const [animateStatus, setAnimateStatus] = useState<'success' | 'error' | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
-  const displayedRef = useRef(content);
-  const [displayedContent, setDisplayedContent] = useState(content);
-  const [isTyping, setIsTyping] = useState(false);
-  const formattedTimestamp = timestamp && /^\d{2}:\d{2}$/.test(timestamp)
-    ? `${timestamp}:00`
-    : timestamp;
-  const roleHandle: Record<RoleId, string> = {
-    PLAN: 'architect',
-    BUILD: 'engineer',
-    REVIEW: 'critic',
-    DEPLOY: 'deployer',
-  };
 
   // Track status changes for animations
   useEffect(() => {
@@ -83,11 +71,6 @@ export function OutputBlock({
       contentRef.current.scrollTop = contentRef.current.scrollHeight;
     }
   }, [content, collapsed, status]);
-
-  const updateDisplayed = (value: string) => {
-    displayedRef.current = value;
-    setDisplayedContent(value);
-  };
 
   const statusIcon = {
     running: <Loader2 className="w-3.5 h-3.5 animate-spin text-[var(--accent-sky)]" />,
@@ -119,7 +102,9 @@ export function OutputBlock({
     copied && 'output-block--copied',
   ].filter(Boolean).join(' ');
 
-  const promptClass = 'text-[var(--terminal-green)]';
+  const promptClass = type === 'shell'
+    ? 'text-[var(--accent-emerald)]'
+    : 'text-[var(--accent-violet)]';
 
   const roleClass = agentRole ? `output-block__role output-block__role--${agentRole.toLowerCase()}` : '';
   const statusLabel = status === 'idle' ? 'idle' : status;
@@ -156,84 +141,13 @@ export function OutputBlock({
 
   const isFileTree = content && isFileTreeContent(content);
 
-  useEffect(() => {
-    if (!content) {
-      updateDisplayed(content);
-      setIsTyping(false);
-      return;
-    }
-
-    if (type !== 'agent' || status === 'running' || isFileTree) {
-      updateDisplayed(content);
-      setIsTyping(false);
-      return;
-    }
-
-    const total = content.length;
-    const current = displayedRef.current;
-    let index = current && content.startsWith(current) ? current.length : 0;
-
-    if (index >= total) {
-      updateDisplayed(content);
-      setIsTyping(false);
-      return;
-    }
-
-    setIsTyping(true);
-    const stepSize = total > 2200 ? 4 : total > 1200 ? 2 : 1;
-    const delay = 30;
-    let timer: ReturnType<typeof setTimeout> | null = null;
-
-    const tick = () => {
-      index = Math.min(index + stepSize, total);
-      updateDisplayed(content.slice(0, index));
-      if (index < total) {
-        timer = setTimeout(tick, delay);
-      } else {
-        setIsTyping(false);
-      }
-    };
-
-    timer = setTimeout(tick, delay);
-
-    return () => {
-      if (timer) clearTimeout(timer);
-    };
-  }, [content, status, type, isFileTree]);
-
   // Render content based on type
-  const commandHandle = agentRole ? roleHandle[agentRole] : 'terminal';
-  const commandLine = `${commandHandle}@llm-creative:~$ ${command}`;
-  const statusBadge = status !== 'idle' ? statusLabel.toUpperCase() : '';
-
-  const renderCommandLine = () => (
-    <div className="terminal-line terminal-line--command">
-      {formattedTimestamp && (
-        <span className="terminal-line__ts">[{formattedTimestamp}]</span>
-      )}
-      {agentLabel && (
-        <span className="terminal-line__role">{agentLabel.toUpperCase()}</span>
-      )}
-      <span className="terminal-line__cmd">{commandLine}</span>
-      {statusBadge && (
-        <span className={`terminal-line__status terminal-line__status--${status}`}>{statusBadge}</span>
-      )}
-    </div>
-  );
-
   const renderContent = () => {
     if (!content && status === 'running') {
       return (
-        <div className="terminal-output">
-          {renderCommandLine()}
-          <div className="terminal-line">
-            {formattedTimestamp && (
-              <span className="terminal-line__ts">[{formattedTimestamp}]</span>
-            )}
-            <span className="terminal-line__text terminal-line__text--running">
-              Running...
-            </span>
-          </div>
+        <div className="flex items-center gap-2 text-[var(--text-tertiary)] text-sm">
+          <Loader2 className="w-4 h-4 animate-spin" />
+          <span>Running...</span>
         </div>
       );
     }
@@ -243,76 +157,21 @@ export function OutputBlock({
     }
 
     if (!content && status === 'error') {
-      return (
-        <div className="terminal-output">
-          {renderCommandLine()}
-          <div className="terminal-line">
-            {formattedTimestamp && (
-              <span className="terminal-line__ts">[{formattedTimestamp}]</span>
-            )}
-            <span className="terminal-line__text terminal-line__text--error">
-              bash: {command}: command not found
-            </span>
-          </div>
-        </div>
-      );
+      return <span className="text-[var(--accent-rose)] text-sm">Command failed with no output</span>;
     }
 
     if (type === 'shell' && isFileTree) {
-      return (
-        <div className="terminal-output">
-          {renderCommandLine()}
-          <div className="terminal-output__body">
-            <FileTreeBlock content={content} />
-          </div>
-        </div>
-      );
+      return <FileTreeBlock content={content} />;
     }
 
     if (type === 'agent' && hasMarkdown) {
-      return (
-        <div className="terminal-output terminal-output--markdown">
-          {renderCommandLine()}
-          <div className="terminal-output__body">
-            <MarkdownMessage
-              content={displayedContent}
-              className="text-sm"
-              timestampLabel={formattedTimestamp}
-              showTimestamps
-            />
-          </div>
-        </div>
-      );
+      return <MarkdownMessage content={content} className="text-sm" />;
     }
 
-    const lines = (displayedContent || '').split('\n');
-
     return (
-      <div className="terminal-output">
-        {renderCommandLine()}
-        {lines.map((line, index) => {
-          const lower = line.toLowerCase();
-          const inferredTone = lower.includes('error') || lower.includes('failed')
-            ? 'error'
-            : lower.includes('warn')
-              ? 'warning'
-              : lower.includes('success') || lower.includes('complete')
-                ? 'success'
-                : status;
-
-          return (
-          <div key={`${id}-line-${index}`} className="terminal-line">
-            {formattedTimestamp && (
-              <span className="terminal-line__ts">[{formattedTimestamp}]</span>
-            )}
-            <span className={`terminal-line__text terminal-line__text--${inferredTone}`}>
-              {line.length > 0 ? line : '\u00A0'}
-            </span>
-          </div>
-          );
-        })}
-        {isTyping && <span className="terminal-line__typing">█</span>}
-      </div>
+      <pre className="font-mono text-sm text-[var(--text-primary)] whitespace-pre-wrap break-words leading-relaxed">
+        {content}
+      </pre>
     );
   };
 
@@ -393,7 +252,13 @@ export function OutputBlock({
             <div className="flex gap-2 px-3 py-2 border-t border-[var(--border-subtle)]">
               <motion.button
                 type="button"
-                className={`terminal-action ${copied ? 'terminal-action--active' : ''}`}
+                className={`
+                  flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded transition-colors
+                  ${copied
+                    ? 'text-[var(--accent-emerald)] bg-[var(--accent-emerald)]/15 border border-[var(--accent-emerald)]/40'
+                    : 'text-[var(--text-secondary)] bg-[var(--bg-elevated)] border border-[var(--border-subtle)] hover:text-[var(--text-primary)] hover:bg-[var(--border-subtle)]'
+                  }
+                `}
                 onClick={handleCopy}
                 whileTap={{ scale: 0.95 }}
               >
@@ -413,7 +278,7 @@ export function OutputBlock({
               {onApply && (
                 <motion.button
                   type="button"
-                  className="terminal-action terminal-action--primary"
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-[var(--bg-base)] bg-[var(--accent-sky)] rounded hover:opacity-90"
                   onClick={handleApply}
                   whileTap={{ scale: 0.95 }}
                 >

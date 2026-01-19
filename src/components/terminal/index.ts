@@ -10,7 +10,7 @@ export { HandoffBlock } from './HandoffBlock';
 export { SessionTimeline } from './SessionTimeline';
 export { ExecutionPlan, type ExecutionTask } from './ExecutionPlan';
 export { TokenCounter } from './TokenCounter';
-export { PhaseGateModal, type PhaseTransition, type PhaseArtifact } from './PhaseGateModal';
+export { PhaseGateModal, type PhaseTransition } from './PhaseGateModal';
 export { AIPairPanel } from './AIPairPanel';
 export { VoiceModeButton } from './VoiceModeButton';
 export { CodeCanvas, type CanvasCodeBlock } from './CodeCanvas';

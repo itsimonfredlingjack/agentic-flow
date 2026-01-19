@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation";
+import { DemoWorkspace } from '@/components/v2/DemoWorkspace';
 
 export default function TerminalPage() {
-  redirect("/v2-demo");
+  return <DemoWorkspace />;
 }

@@ -11,9 +11,8 @@ import { ExecutionPlan, ExecutionTask } from "./ExecutionPlan";
 import { TokenCounter } from "./TokenCounter";
 import { StatusPill } from "./StatusPill";
 import { RoleSelector, RoleId, RoleState } from './RoleSelector';
-import { NanoSteps, type NanoStep } from './NanoSteps';
 import { SessionTimeline } from './SessionTimeline';
-import { Command, PanelLeftClose, PanelLeft, ExternalLink, FileText, Palette } from 'lucide-react';
+import { Command, PanelLeftClose, PanelLeft, ExternalLink } from 'lucide-react';
 
 export interface OutputItem {
   id: string;
@@ -42,13 +41,6 @@ type InspectorItem = {
   fileGroup?: string[];
   status?: BlockStatus;
   role?: RoleId;
-};
-
-type ArtifactItem = {
-  id: string;
-  name: string;
-  preview?: string;
-  meta?: string;
 };
 
 interface TerminalLayoutProps {
@@ -82,16 +74,11 @@ interface TerminalLayoutProps {
     isActive: boolean;
   }>;
   executionTasks?: ExecutionTask[];
-  nanoSteps?: NanoStep[];
-  nanoStepsTitle?: string;
-  artifacts?: ArtifactItem[];
   tokenCounts?: {
     input: number;
     output: number;
     total: number;
   };
-  tokenLimit?: number;
-  tokenWarnAt?: number;
   headerActions?: React.ReactNode;
 }
 
@@ -191,24 +178,17 @@ export function TerminalLayout({
   sessions = [],
   agents = [],
   executionTasks = [],
-  nanoSteps = [],
-  nanoStepsTitle,
-  artifacts = [],
   tokenCounts,
-  tokenLimit,
-  tokenWarnAt,
   headerActions,
 }: TerminalLayoutProps) {
   const [inputMode, setInputMode] = useState<InputMode>('agent');
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [timelineVisible, setTimelineVisible] = useState(showTimeline);
-  const [mode, setMode] = useState<LayoutMode>('inspect');
+  const [mode, setMode] = useState<LayoutMode>('focus');
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>('inspector');
   const [selectedInspectorId, setSelectedInspectorId] = useState<string | null>(null);
-  const [selectedArtifactId, setSelectedArtifactId] = useState<string | null>(null);
   const [diffOpen, setDiffOpen] = useState(false);
   const [autoScroll, setAutoScroll] = useState(true);
-  const [fontScale, setFontScale] = useState(0);
   const [recentItems, setRecentItems] = useState<Array<{
     id: string;
     type: 'shell' | 'agent' | 'nav';
@@ -219,50 +199,6 @@ export function TerminalLayout({
   const mainRef = useRef<HTMLDivElement>(null);
   const planPanelRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    try {
-      const stored = window.localStorage.getItem('terminal-font-scale');
-      const initial = stored ? Number(stored) : 0;
-      if (!Number.isNaN(initial)) {
-        setFontScale(Math.max(-2, Math.min(2, initial)));
-      }
-    } catch {
-      // ignore storage errors
-    }
-  }, []);
-
-  useEffect(() => {
-    if (typeof document === 'undefined') return;
-    const base = 14;
-    const size = Math.max(13, Math.min(17, base + fontScale));
-    document.documentElement.style.setProperty('--terminal-font-size', `${size}px`);
-    document.documentElement.style.setProperty('--terminal-line-height', fontScale >= 1 ? '1.7' : '1.65');
-    if (typeof window !== 'undefined') {
-      try {
-        window.localStorage.setItem('terminal-font-scale', String(fontScale));
-      } catch {
-        // ignore storage errors
-      }
-    }
-  }, [fontScale]);
-
-  useEffect(() => {
-    const handler = (event: KeyboardEvent) => {
-      if (!(event.metaKey || event.ctrlKey)) return;
-      if (event.key === '+' || event.key === '=') {
-        event.preventDefault();
-        setFontScale((prev) => Math.min(prev + 1, 2));
-      }
-      if (event.key === '-') {
-        event.preventDefault();
-        setFontScale((prev) => Math.max(prev - 1, -2));
-      }
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, []);
 
   // Default role states if not provided
   const effectiveRoleStates: Record<RoleId, RoleState> = roleStates || {
@@ -335,10 +271,6 @@ export function TerminalLayout({
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
         setPaletteOpen(prev => !prev);
-      }
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'f') {
-        e.preventDefault();
-        setMode(prev => (prev === 'focus' ? 'inspect' : 'focus'));
       }
       if ((e.metaKey || e.ctrlKey) && ['1', '2', '3', '4'].includes(e.key)) {
         e.preventDefault();
@@ -470,21 +402,7 @@ export function TerminalLayout({
     });
   }, [inspectorItems]);
 
-  useEffect(() => {
-    if (artifacts.length === 0) {
-      setSelectedArtifactId(null);
-      return;
-    }
-    setSelectedArtifactId((prev) => {
-      if (prev && artifacts.some((artifact) => artifact.id === prev)) {
-        return prev;
-      }
-      return artifacts[0].id;
-    });
-  }, [artifacts]);
-
   const selectedInspectorItem = inspectorItems.find((item) => item.id === selectedInspectorId) || inspectorItems[0];
-  const selectedArtifact = artifacts.find((artifact) => artifact.id === selectedArtifactId) || artifacts[0];
   const showRightPanel = mode !== 'focus';
   const showLeftRail = mode !== 'focus' && timelineVisible;
   const activeAgent = agents.find((agent) => agent.id === currentRole);
@@ -533,27 +451,6 @@ export function TerminalLayout({
     REVIEW: 'Critic',
     DEPLOY: 'Deployer',
   };
-  const roleHandles: Record<RoleId, 'architect' | 'engineer' | 'critic' | 'deployer'> = {
-    PLAN: 'architect',
-    BUILD: 'engineer',
-    REVIEW: 'critic',
-    DEPLOY: 'deployer',
-  };
-
-  const roleShellClass = {
-    PLAN: 'terminal-shell--architect',
-    BUILD: 'terminal-shell--engineer',
-    REVIEW: 'terminal-shell--critic',
-    DEPLOY: 'terminal-shell--deployer',
-  }[currentRole];
-  const batchTotal = executionTasks.length;
-  const batchCompleted = executionTasks.filter(task => task.status === 'completed').length;
-  const batchRunning = executionTasks.filter(task => task.status === 'in-progress').length;
-  const batchProgress = batchTotal > 0 ? Math.round((batchCompleted / batchTotal) * 100) : 0;
-  const batchLabel = batchTotal > 0
-    ? (batchRunning > 0 ? `Running ${batchRunning}/${batchTotal} tasks` : `Queued ${batchTotal} tasks`)
-    : null;
-
 
   const roleOrder: RoleId[] = ['PLAN', 'BUILD', 'REVIEW', 'DEPLOY'];
   const currentRoleIndex = roleOrder.indexOf(currentRole);
@@ -608,19 +505,6 @@ export function TerminalLayout({
     mainRef.current?.focus();
   }, [outputs]);
 
-  const handleTimelineSelect = useCallback((roleId: RoleId) => {
-    onRoleChange(roleId);
-    const match = [...outputs].reverse().find((output) => output.agentRole === roleId);
-    if (match) {
-      const block = document.querySelector(`[data-block-id="${match.id}"]`);
-      if (block instanceof HTMLElement) {
-        block.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
-    }
-  }, [onRoleChange, outputs]);
-
-  // (resizer removed)
-
   return (
     <div className="flex h-screen bg-[var(--bg-base)] text-[var(--text-primary)]">
       {/* Session Timeline Sidebar */}
@@ -629,7 +513,7 @@ export function TerminalLayout({
           <SessionTimeline
             currentRole={currentRole}
             roleStates={effectiveRoleStates}
-            onSelectRole={handleTimelineSelect}
+            onSelectRole={onRoleChange}
           />
           <div
             ref={planPanelRef}
@@ -647,10 +531,10 @@ export function TerminalLayout({
       )}
 
       {/* Main Content */}
-      <div className={`terminal-shell flex-1 flex flex-col min-w-0 ${roleShellClass} ${mode === 'focus' ? 'terminal-shell--focus' : ''}`}>
+      <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
         <header className="flex items-center gap-3 px-4 py-2 border-b border-[var(--border-subtle)]">
-          <div className="flex items-start gap-3 min-w-[260px]">
+          <div className="flex items-center gap-3 min-w-[260px]">
             <button
               onClick={() => setTimelineVisible(!timelineVisible)}
               className="p-1.5 text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface)] rounded transition-colors"
@@ -663,50 +547,30 @@ export function TerminalLayout({
               )}
             </button>
 
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center gap-3 flex-wrap">
-                <div className="flex flex-col">
-                  <span className="text-sm font-medium tracking-tight">LLM Creative</span>
-                  <span className="text-xs text-[var(--text-tertiary)]">Session {sessionId}</span>
-                </div>
-
-                <div className="flex flex-col gap-1">
-                  <RoleSelector
-                    currentRole={currentRole}
-                    roleStates={effectiveRoleStates}
-                    onSelectRole={onRoleChange}
-                  />
-                  {batchLabel && (
-                    <div className={`batch-indicator ${batchRunning > 0 ? '' : 'batch-indicator--idle'}`}>
-                      <span>{batchLabel}</span>
-                      <div className="batch-indicator__bar">
-                        <div className="batch-indicator__fill" style={{ width: `${batchProgress}%` }} />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {nanoSteps.length > 0 && (
-                <NanoSteps steps={nanoSteps} title={nanoStepsTitle} ariaLabel="Nano-steps progress" />
-              )}
+            <div className="flex flex-col">
+              <span className="text-sm font-medium tracking-tight">LLM Creative</span>
+              <span className="text-xs text-[var(--text-tertiary)]">Session {sessionId}</span>
             </div>
+
+            <RoleSelector
+              currentRole={currentRole}
+              roleStates={effectiveRoleStates}
+              onSelectRole={onRoleChange}
+            />
           </div>
 
           <div className="flex-1 flex justify-center">
-            <div className="flex flex-col items-center gap-1">
-              <div className="mode-toggle">
-                {(['focus', 'inspect', 'batch'] as LayoutMode[]).map((item) => (
-                  <button
-                    key={item}
-                    type="button"
-                    className={`mode-toggle__button ${mode === item ? 'mode-toggle__button--active' : ''}`}
-                    onClick={() => setMode(item)}
-                  >
-                    {item}
-                  </button>
-                ))}
-              </div>
+            <div className="mode-toggle">
+              {(['focus', 'inspect', 'batch'] as LayoutMode[]).map((item) => (
+                <button
+                  key={item}
+                  type="button"
+                  className={`mode-toggle__button ${mode === item ? 'mode-toggle__button--active' : ''}`}
+                  onClick={() => setMode(item)}
+                >
+                  {item}
+                </button>
+              ))}
             </div>
           </div>
 
@@ -735,8 +599,6 @@ export function TerminalLayout({
                 inputTokens={tokenCounts.input}
                 outputTokens={tokenCounts.output}
                 totalTokens={tokenCounts.total}
-                maxTokens={tokenLimit}
-                warnAt={tokenWarnAt}
               />
             )}
             <ModelSelector
@@ -760,7 +622,7 @@ export function TerminalLayout({
 
               <div
                 ref={mainRef}
-                className="terminal-panel__body space-y-4"
+                className="terminal-panel__body space-y-3"
                 tabIndex={0}
                 onKeyDown={(e) => {
                   if (e.key === 'Tab') {
@@ -782,7 +644,7 @@ export function TerminalLayout({
                 )}
 
                 {visibleOutputs.map((output) => (
-                  <div key={output.id} className={`output-wrap ${getAgentClass(output.agentRole)}`}>
+                  <div key={output.id} className={getAgentClass(output.agentRole)}>
                     <OutputBlock
                       id={output.id}
                       type={output.type}
@@ -810,11 +672,6 @@ export function TerminalLayout({
               disabled={agentStatus === 'running' || agentStatus === 'thinking'}
               onFocusCycle={(direction) => handleFocusCycle('input', direction)}
               inputRef={inputRef}
-              promptLabel={`${roleHandles[currentRole]}@llm-creative:~$`}
-              promptTone={roleHandles[currentRole]}
-              placeholder=""
-              tokenLimit={tokenLimit}
-              tokenWarnAt={tokenWarnAt}
             />
           </section>
 
@@ -833,7 +690,6 @@ export function TerminalLayout({
                         className={`panel-tab ${inspectorTab === 'inspector' ? 'panel-tab--active' : ''}`}
                         onClick={() => setInspectorTab('inspector')}
                       >
-                        <FileText className="w-3.5 h-3.5" />
                         Inspector
                       </button>
                       <button
@@ -841,7 +697,6 @@ export function TerminalLayout({
                         className={`panel-tab ${inspectorTab === 'canvas' ? 'panel-tab--active' : ''}`}
                         onClick={() => setInspectorTab('canvas')}
                       >
-                        <Palette className="w-3.5 h-3.5" />
                         Canvas
                       </button>
                     </div>
@@ -850,43 +705,6 @@ export function TerminalLayout({
                   <div className="terminal-panel__body space-y-4">
                       {inspectorTab === 'inspector' ? (
                       <>
-                        <div>
-                          <div className="panel-section__title">Artifacts</div>
-                          {artifacts.length === 0 ? (
-                            <div className="panel-empty">No artifacts yet.</div>
-                          ) : (
-                            <div className="artifact-list">
-                              {artifacts.map((artifact) => (
-                                <button
-                                  key={artifact.id}
-                                  type="button"
-                                  className={`artifact-card ${artifact.id === selectedArtifact?.id ? 'artifact-card--active' : ''}`}
-                                  onClick={() => setSelectedArtifactId(artifact.id)}
-                                >
-                                  <div className="artifact-card__title">{artifact.name}</div>
-                                  {artifact.preview && (
-                                    <div className="artifact-card__preview">{artifact.preview}</div>
-                                  )}
-                                  {artifact.meta && (
-                                    <div className="artifact-card__meta">{artifact.meta}</div>
-                                  )}
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-
-                        <div>
-                          <div className="panel-section__title">TYPE: ARTIFACT PREVIEW</div>
-                          <div className="artifact-preview">
-                            {selectedArtifact?.preview ? (
-                              <pre className="artifact-preview__content">{selectedArtifact.preview}</pre>
-                            ) : (
-                              <div className="panel-empty">Select an artifact to preview.</div>
-                            )}
-                          </div>
-                        </div>
-
                         <div>
                           <div className="panel-section__title">Sources</div>
                           {inspectorItems.length === 0 ? (
