@@ -37,6 +37,7 @@ export async function GET(request: Request) {
     return NextResponse.json({
         id: runId,
         snapshot: snapshot ? snapshot.context : null,
+        snapshotTimestamp: snapshot ? snapshot.timestamp : null,
         isResumed: !!snapshot
     });
 }

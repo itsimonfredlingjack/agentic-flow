@@ -11,6 +11,7 @@ import { ExecutionPlan, ExecutionTask } from "./ExecutionPlan";
 import { TokenCounter } from "./TokenCounter";
 import { StatusPill } from "./StatusPill";
 import { RoleSelector, RoleId, RoleState } from './RoleSelector';
+import { NanoSteps, type NanoStep } from './NanoSteps';
 import { SessionTimeline } from './SessionTimeline';
 import { Command, PanelLeftClose, PanelLeft, ExternalLink } from 'lucide-react';
 
@@ -74,11 +75,15 @@ interface TerminalLayoutProps {
     isActive: boolean;
   }>;
   executionTasks?: ExecutionTask[];
+  nanoSteps?: NanoStep[];
+  nanoStepsTitle?: string;
   tokenCounts?: {
     input: number;
     output: number;
     total: number;
   };
+  tokenLimit?: number;
+  tokenWarnAt?: number;
   headerActions?: React.ReactNode;
 }
 
@@ -178,7 +183,11 @@ export function TerminalLayout({
   sessions = [],
   agents = [],
   executionTasks = [],
+  nanoSteps = [],
+  nanoStepsTitle,
   tokenCounts,
+  tokenLimit,
+  tokenWarnAt,
   headerActions,
 }: TerminalLayoutProps) {
   const [inputMode, setInputMode] = useState<InputMode>('agent');
@@ -452,6 +461,21 @@ export function TerminalLayout({
     DEPLOY: 'Deployer',
   };
 
+  const roleShellClass = {
+    PLAN: 'terminal-shell--architect',
+    BUILD: 'terminal-shell--engineer',
+    REVIEW: 'terminal-shell--critic',
+    DEPLOY: 'terminal-shell--deployer',
+  }[currentRole];
+  const batchTotal = executionTasks.length;
+  const batchCompleted = executionTasks.filter(task => task.status === 'completed').length;
+  const batchRunning = executionTasks.filter(task => task.status === 'in-progress').length;
+  const batchProgress = batchTotal > 0 ? Math.round((batchCompleted / batchTotal) * 100) : 0;
+  const batchLabel = batchTotal > 0
+    ? (batchRunning > 0 ? `Running ${batchRunning}/${batchTotal} tasks` : `Queued ${batchTotal} tasks`)
+    : null;
+
+
   const roleOrder: RoleId[] = ['PLAN', 'BUILD', 'REVIEW', 'DEPLOY'];
   const currentRoleIndex = roleOrder.indexOf(currentRole);
   const nextRole = currentRoleIndex >= 0 && currentRoleIndex < roleOrder.length - 1
@@ -531,10 +555,10 @@ export function TerminalLayout({
       )}
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className={`terminal-shell flex-1 flex flex-col min-w-0 ${roleShellClass}`}>
         {/* Header */}
         <header className="flex items-center gap-3 px-4 py-2 border-b border-[var(--border-subtle)]">
-          <div className="flex items-center gap-3 min-w-[260px]">
+          <div className="flex items-start gap-3 min-w-[260px]">
             <button
               onClick={() => setTimelineVisible(!timelineVisible)}
               className="p-1.5 text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface)] rounded transition-colors"
@@ -547,30 +571,48 @@ export function TerminalLayout({
               )}
             </button>
 
-            <div className="flex flex-col">
-              <span className="text-sm font-medium tracking-tight">LLM Creative</span>
-              <span className="text-xs text-[var(--text-tertiary)]">Session {sessionId}</span>
-            </div>
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-3 flex-wrap">
+                <div className="flex flex-col">
+                  <span className="text-sm font-medium tracking-tight">LLM Creative</span>
+                  <span className="text-xs text-[var(--text-tertiary)]">Session {sessionId}</span>
+                </div>
 
-            <RoleSelector
-              currentRole={currentRole}
-              roleStates={effectiveRoleStates}
-              onSelectRole={onRoleChange}
-            />
+                <RoleSelector
+                  currentRole={currentRole}
+                  roleStates={effectiveRoleStates}
+                  onSelectRole={onRoleChange}
+                />
+              </div>
+
+              {nanoSteps.length > 0 && (
+                <NanoSteps steps={nanoSteps} title={nanoStepsTitle} ariaLabel="Nano-steps progress" />
+              )}
+            </div>
           </div>
 
           <div className="flex-1 flex justify-center">
-            <div className="mode-toggle">
-              {(['focus', 'inspect', 'batch'] as LayoutMode[]).map((item) => (
-                <button
-                  key={item}
-                  type="button"
-                  className={`mode-toggle__button ${mode === item ? 'mode-toggle__button--active' : ''}`}
-                  onClick={() => setMode(item)}
-                >
-                  {item}
-                </button>
-              ))}
+            <div className="flex flex-col items-center gap-1">
+              <div className="mode-toggle">
+                {(['focus', 'inspect', 'batch'] as LayoutMode[]).map((item) => (
+                  <button
+                    key={item}
+                    type="button"
+                    className={`mode-toggle__button ${mode === item ? 'mode-toggle__button--active' : ''}`}
+                    onClick={() => setMode(item)}
+                  >
+                    {item}
+                  </button>
+                ))}
+              </div>
+              {batchLabel && (
+                <div className="batch-indicator">
+                  <span>{batchLabel}</span>
+                  <div className="batch-indicator__bar">
+                    <div className="batch-indicator__fill" style={{ width: `${batchProgress}%` }} />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -599,6 +641,8 @@ export function TerminalLayout({
                 inputTokens={tokenCounts.input}
                 outputTokens={tokenCounts.output}
                 totalTokens={tokenCounts.total}
+                maxTokens={tokenLimit}
+                warnAt={tokenWarnAt}
               />
             )}
             <ModelSelector

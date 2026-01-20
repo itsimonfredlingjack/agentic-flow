@@ -226,7 +226,7 @@ class TaskLedger {
     return row?.id || null;
   }
 
-  public loadLatestSnapshot(runId: string): { stateValue: string; context: unknown } | null {
+  public loadLatestSnapshot(runId: string): { stateValue: string; context: unknown; timestamp: number } | null {
     if (this.useInMemory) {
       const latest = this.snapshots
         .filter(snapshot => snapshot.runId === runId)
@@ -234,22 +234,25 @@ class TaskLedger {
       if (!latest) return null;
       return {
         stateValue: latest.stateValue,
-        context: latest.context
+        context: latest.context,
+        timestamp: latest.timestamp
       };
     }
-    const stmt = this.db.prepare('SELECT state_value, context FROM snapshots WHERE run_id = ? ORDER BY timestamp DESC LIMIT 1');
-    const row = stmt.get(runId) as { state_value: string; context: string } | undefined;
+    const stmt = this.db.prepare('SELECT state_value, context, timestamp FROM snapshots WHERE run_id = ? ORDER BY timestamp DESC LIMIT 1');
+    const row = stmt.get(runId) as { state_value: string; context: string; timestamp: number } | undefined;
     if (!row) return null;
 
     try {
       return {
         stateValue: row.state_value,
-        context: JSON.parse(row.context)
+        context: JSON.parse(row.context),
+        timestamp: row.timestamp
       };
     } catch {
       return {
         stateValue: row.state_value,
-        context: null
+        context: null,
+        timestamp: row.timestamp
       };
     }
   }
