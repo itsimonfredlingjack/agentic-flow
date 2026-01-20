@@ -44,6 +44,13 @@ type InspectorItem = {
   role?: RoleId;
 };
 
+type ArtifactItem = {
+  id: string;
+  name: string;
+  preview?: string;
+  meta?: string;
+};
+
 interface TerminalLayoutProps {
   sessionId: string;
   currentRole: RoleId;
@@ -77,6 +84,7 @@ interface TerminalLayoutProps {
   executionTasks?: ExecutionTask[];
   nanoSteps?: NanoStep[];
   nanoStepsTitle?: string;
+  artifacts?: ArtifactItem[];
   tokenCounts?: {
     input: number;
     output: number;
@@ -185,6 +193,7 @@ export function TerminalLayout({
   executionTasks = [],
   nanoSteps = [],
   nanoStepsTitle,
+  artifacts = [],
   tokenCounts,
   tokenLimit,
   tokenWarnAt,
@@ -196,6 +205,7 @@ export function TerminalLayout({
   const [mode, setMode] = useState<LayoutMode>('focus');
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>('inspector');
   const [selectedInspectorId, setSelectedInspectorId] = useState<string | null>(null);
+  const [selectedArtifactId, setSelectedArtifactId] = useState<string | null>(null);
   const [diffOpen, setDiffOpen] = useState(false);
   const [autoScroll, setAutoScroll] = useState(true);
   const [recentItems, setRecentItems] = useState<Array<{
@@ -410,6 +420,19 @@ export function TerminalLayout({
       return inspectorItems[0].id;
     });
   }, [inspectorItems]);
+
+  useEffect(() => {
+    if (artifacts.length === 0) {
+      setSelectedArtifactId(null);
+      return;
+    }
+    setSelectedArtifactId((prev) => {
+      if (prev && artifacts.some((artifact) => artifact.id === prev)) {
+        return prev;
+      }
+      return artifacts[0].id;
+    });
+  }, [artifacts]);
 
   const selectedInspectorItem = inspectorItems.find((item) => item.id === selectedInspectorId) || inspectorItems[0];
   const showRightPanel = mode !== 'focus';
@@ -749,6 +772,40 @@ export function TerminalLayout({
                   <div className="terminal-panel__body space-y-4">
                       {inspectorTab === 'inspector' ? (
                       <>
+                        <div>
+                          <div className="panel-section__title">Artifacts</div>
+                          {artifacts.length === 0 ? (
+                            <div className="panel-empty">No artifacts yet.</div>
+                          ) : (
+                            <div className="artifact-list">
+                              {artifacts.map((artifact) => (
+                                <button
+                                  key={artifact.id}
+                                  type="button"
+                                  className={`artifact-card ${artifact.id === selectedArtifact?.id ? 'artifact-card--active' : ''}`}
+                                  onClick={() => setSelectedArtifactId(artifact.id)}
+                                >
+                                  <div className="artifact-card__title">{artifact.name}</div>
+                                  {artifact.meta && (
+                                    <div className="artifact-card__meta">{artifact.meta}</div>
+                                  )}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        <div>
+                          <div className="panel-section__title">Artifact Preview</div>
+                          <div className="artifact-preview">
+                            {selectedArtifact?.preview ? (
+                              <pre className="artifact-preview__content">{selectedArtifact.preview}</pre>
+                            ) : (
+                              <div className="panel-empty">Select an artifact to preview.</div>
+                            )}
+                          </div>
+                        </div>
+
                         <div>
                           <div className="panel-section__title">Sources</div>
                           {inspectorItems.length === 0 ? (

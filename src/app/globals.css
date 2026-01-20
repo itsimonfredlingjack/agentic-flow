@@ -2911,3 +2911,62 @@ input::placeholder, textarea::placeholder {
   color: var(--text-tertiary);
   letter-spacing: 0.04em;
 }
+
+/* ============================================
+   Inspector Artifacts
+   ============================================ */
+
+.artifact-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.artifact-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: 0.6rem;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-elevated);
+  text-align: left;
+  transition: border-color var(--duration-normal) ease, background var(--duration-normal) ease;
+}
+
+.artifact-card:hover {
+  border-color: var(--border-focus);
+  background: color-mix(in srgb, var(--bg-elevated) 80%, var(--bg-surface));
+}
+
+.artifact-card--active {
+  border-color: color-mix(in srgb, var(--accent-sky) 60%, var(--border-subtle));
+  background: color-mix(in srgb, var(--accent-sky) 10%, var(--bg-surface));
+}
+
+.artifact-card__title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.artifact-card__meta {
+  font-size: 0.65rem;
+  color: var(--text-tertiary);
+}
+
+.artifact-preview {
+  border-radius: 0.7rem;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-elevated);
+  padding: 0.6rem;
+  min-height: 140px;
+}
+
+.artifact-preview__content {
+  margin: 0;
+  font-size: 0.72rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+}

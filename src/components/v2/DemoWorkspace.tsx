@@ -492,6 +492,7 @@ Artifact(id, runId, name, checksum)
         executionTasks={demoExecutionTasks}
         nanoSteps={nanoSteps}
         nanoStepsTitle={nanoStepsTitle}
+        artifacts={currentArtifacts}
         tokenCounts={{ input: 1247, output: 856, total: 2103 }}
         tokenLimit={8000}
         tokenWarnAt={0.8}
