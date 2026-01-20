@@ -7,6 +7,8 @@ import { ROLES } from '@/lib/roles';
 import { AgentControls } from './AgentControls';
 import { useAgencyClient } from '@/lib/client';
 import { ShadowTerminal } from './ShadowTerminal';
+import { parseTodos } from '@/lib/todoParser';
+import { useTodoContext } from '@/lib/TodoContext';
 
 // Smart Context System
 import {
@@ -16,7 +18,8 @@ import {
     storePhaseOutput,
     addError,
     setUserRequest,
-    getContextSummary
+    getContextSummary,
+    setTodos
 } from '@/lib/contextProvider';
 
 // Refactored Sub-Components
@@ -252,12 +255,18 @@ function streamReducer(state: StreamItem[], action: StreamAction): StreamItem[] 
 
 export function AgentWorkspace({ runId, currentPhase, stream: initialStream, onSendMessage }: AgentWorkspaceProps) {
     const [localStream, dispatch] = useReducer(streamReducer, initialStream);
+    const { state: todoState, dispatch: todoDispatch } = useTodoContext();
 
     const activeRole = phaseToRole(currentPhase);
 
     // Smart Context System - session context persists across phase transitions
     const initialSessionContext = useMemo(() => createSessionContext(), []);
     const sessionContextRef = useRef<SessionContext>(initialSessionContext);
+
+    // Sync todos to session context
+    useEffect(() => {
+        setTodos(sessionContextRef.current, todoState.todos);
+    }, [todoState.todos]);
 
     const chatHistoryRef = useRef<OllamaChatMessage[]>([
         { role: 'system', content: buildPhasePrompt(activeRole, initialSessionContext) }
@@ -346,6 +355,12 @@ export function AgentWorkspace({ runId, currentPhase, stream: initialStream, onS
                  ...chatHistoryRef.current,
                  { role: 'assistant', content: rawContent }
              ]);
+
+             // Parse todos and update store
+             const { todos: parsedTodos } = parseTodos(rawContent, activeRole);
+             if (parsedTodos.length > 0) {
+                 todoDispatch({ type: 'UPDATE_FROM_AGENT', todos: parsedTodos });
+             }
         }
 
         dispatch({ type: 'PROCESS_EVENT', event: lastEvent, runId, currentPhase });

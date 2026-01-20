@@ -18,6 +18,8 @@ import { StatusBar } from './StatusBar';
 import { RoleNavigator } from './RoleNavigator';
 import { DEFAULT_MODEL_ASSIGNMENTS } from '@/lib/models';
 import { RoleId } from '@/lib/roles';
+import { TodoProvider } from '@/lib/TodoContext';
+import { ProjectTodos } from './ProjectTodos';
 
 type MissionPersistedSnapshot = {
     status: string;
@@ -366,85 +368,93 @@ function MissionControlInner({ initialSnapshot }: { initialSnapshot?: MissionPer
     };
 
     return (
-        <div className="flex flex-col h-screen w-full text-white bg-[#050505] p-2 overflow-hidden font-mono text-[13px]">
-            {/* SECURITY OVERLAY */}
-            {
-                isLockdown && (
-                    <div className="absolute inset-0 z-50 bg-[#050505] p-2/80 backdrop-blur-md flex items-center justify-center p-8">
-                        <div className="bg-red-950/40 border border-red-500/50 rounded-2xl p-8 max-w-lg w-full text-center shadow-[0_0_100px_rgba(255,0,0,0.2)]">
-                            <Shield className="w-16 h-16 text-red-500 mx-auto mb-4 animate-pulse" />
-                            <h2 className="text-3xl font-bold text-white mb-2 tracking-widest">SECURITY LOCKDOWN</h2>
-                            <p className="text-red-200/80 mb-6 font-mono text-sm border-t border-b border-white/10 py-4 my-4">
-                                {snapshot.context.error}
-                            </p>
-                            <button
-                                onClick={() => send({ type: 'RETRY' })}
-                                className="bg-red-600 hover:bg-red-500 text-white font-bold py-3 px-8 rounded-lg transition-all shadow-lg hover:shadow-red-500/20"
-                            >
-                                ACKNOWLEDGE & RESET
-                            </button>
+        <TodoProvider>
+            <div className="flex flex-col h-screen w-full text-white bg-[#050505] p-2 overflow-hidden font-mono text-[13px]">
+                {/* SECURITY OVERLAY */}
+                {
+                    isLockdown && (
+                        <div className="absolute inset-0 z-50 bg-[#050505] p-2/80 backdrop-blur-md flex items-center justify-center p-8">
+                            <div className="bg-red-950/40 border border-red-500/50 rounded-2xl p-8 max-w-lg w-full text-center shadow-[0_0_100px_rgba(255,0,0,0.2)]">
+                                <Shield className="w-16 h-16 text-red-500 mx-auto mb-4 animate-pulse" />
+                                <h2 className="text-3xl font-bold text-white mb-2 tracking-widest">SECURITY LOCKDOWN</h2>
+                                <p className="text-red-200/80 mb-6 font-mono text-sm border-t border-b border-white/10 py-4 my-4">
+                                    {snapshot.context.error}
+                                </p>
+                                <button
+                                    onClick={() => send({ type: 'RETRY' })}
+                                    className="bg-red-600 hover:bg-red-500 text-white font-bold py-3 px-8 rounded-lg transition-all shadow-lg hover:shadow-red-500/20"
+                                >
+                                    ACKNOWLEDGE & RESET
+                                </button>
+                            </div>
                         </div>
-                    </div>
-                )
-            }
+                    )
+                }
 
-            {/* MODALS */}
-            <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
-            <CommandPalette
-                isOpen={isCmdPaletteOpen}
-                onClose={() => setIsCmdPaletteOpen(false)}
-                actions={[
-                    { id: 'new-run', label: 'New Session', shortcut: 'Cmd+R', icon: Zap, onSelect: () => handleCommand('new-run') },
-                    { id: 'open-settings', label: 'Settings', shortcut: 'Cmd+,', icon: Settings, onSelect: () => handleCommand('open-settings') }
-                ]}
-            />
-            {/* Role Deck (Top Center) */}
-            <div className="absolute left-0 right-0 top-2 z-40 flex justify-center">
-                <RoleNavigator
-                    currentPhase={currentPhase.toUpperCase() as RoleId}
-                    onSetPhase={(roleId) => send({ type: 'SET_STAGE', stage: roleIdToStage(roleId) })}
-                    modelAssignments={modelAssignments}
-                    onSetModel={(roleId, modelId) => {
-                        setModelAssignments(prev => ({ ...prev, [roleId]: modelId }));
-                        // Here you would also likely update the agent config on the backend
-                        console.log(`Assigned ${modelId} to ${roleId}`);
-                    }}
+                {/* MODALS */}
+                <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+                <CommandPalette
+                    isOpen={isCmdPaletteOpen}
+                    onClose={() => setIsCmdPaletteOpen(false)}
+                    actions={[
+                        { id: 'new-run', label: 'New Session', shortcut: 'Cmd+R', icon: Zap, onSelect: () => handleCommand('new-run') },
+                        { id: 'open-settings', label: 'Settings', shortcut: 'Cmd+,', icon: Settings, onSelect: () => handleCommand('open-settings') }
+                    ]}
+                />
+                {/* Role Deck (Top Center) */}
+                <div className="absolute left-0 right-0 top-2 z-40 flex justify-center">
+                    <RoleNavigator
+                        currentPhase={currentPhase.toUpperCase() as RoleId}
+                        onSetPhase={(roleId) => send({ type: 'SET_STAGE', stage: roleIdToStage(roleId) })}
+                        modelAssignments={modelAssignments}
+                        onSetModel={(roleId, modelId) => {
+                            setModelAssignments(prev => ({ ...prev, [roleId]: modelId }));
+                            // Here you would also likely update the agent config on the backend
+                            console.log(`Assigned ${modelId} to ${roleId}`);
+                        }}
+                    />
+                </div>
+
+                {/* Main Stage (Center - Agent Console) - Full Width */}
+                <main className="flex-1 flex overflow-hidden relative border-b border-white/10">
+                    <div className="flex-1 flex flex-col min-w-0">
+                        <AgentWorkspace
+                            runId={snapshot.context.runId}
+                            currentPhase={currentPhase}
+                            stream={[]} // Clean slate - no history on load
+                            onSendMessage={(msg) => {
+                                // Optimistic update
+                                const userMsg = {
+                                    id: Date.now().toString(),
+                                    runId: snapshot.context.runId,
+                                    type: 'log' as const,
+                                    title: 'User Input',
+                                    content: msg,
+                                    timestamp: new Date().toLocaleTimeString(),
+                                    phase: currentPhase,
+                                    agentId: 'USER',
+                                    severity: 'info' as const,
+                                    isUser: true
+                                };
+                                setActions(prev => [...prev, userMsg]);
+                                handleSendMessage(msg);
+                            }}
+                        />
+                    </div>
+                    {/* Living Todo Panel (Sidebar) */}
+                    <div className="w-80 border-l border-white/10 bg-[#0A0A0A] p-3 flex flex-col">
+                        <ProjectTodos />
+                    </div>
+                </main>
+
+                {/* Status Bar */}
+                <StatusBar
+                    currentPhase={currentPhase}
+                    eventCount={actions.length}
+                    isProcessing={isProcessing}
+                    connectionStatus={connectionStatus}
                 />
             </div>
-
-            {/* Main Stage (Center - Agent Console) - Full Width */}
-            <main className="flex-1 flex flex-col overflow-hidden relative border-b border-white/10">
-                <AgentWorkspace
-                    runId={snapshot.context.runId}
-                    currentPhase={currentPhase}
-                    stream={[]} // Clean slate - no history on load
-                    onSendMessage={(msg) => {
-                        // Optimistic update
-                        const userMsg = {
-                            id: Date.now().toString(),
-                            runId: snapshot.context.runId,
-                            type: 'log' as const,
-                            title: 'User Input',
-                            content: msg,
-                            timestamp: new Date().toLocaleTimeString(),
-                            phase: currentPhase,
-                            agentId: 'USER',
-                            severity: 'info' as const,
-                            isUser: true
-                        };
-                        setActions(prev => [...prev, userMsg]);
-                        handleSendMessage(msg);
-                    }}
-                />
-            </main>
-
-            {/* Status Bar */}
-            <StatusBar
-                currentPhase={currentPhase}
-                eventCount={actions.length}
-                isProcessing={isProcessing}
-                connectionStatus={connectionStatus}
-            />
-        </div>
+        </TodoProvider>
     );
 }
