@@ -3,23 +3,8 @@
 import React, { useState } from 'react';
 import { Check, Circle, Plus, Flame, Zap, Clock } from 'lucide-react';
 import clsx from 'clsx';
-
-interface TodoItem {
-    id: string;
-    text: string;
-    done: boolean;
-    priority?: 'high' | 'medium' | 'low';
-    phase?: 'PLAN' | 'BUILD' | 'REVIEW' | 'DEPLOY';
-}
-
-const INITIAL_TODOS: TodoItem[] = [
-    { id: '1', text: 'Design API architecture', done: true, priority: 'high', phase: 'PLAN' },
-    { id: '2', text: 'Implement auth module', done: false, priority: 'high', phase: 'BUILD' },
-    { id: '3', text: 'Write unit tests', done: false, priority: 'medium', phase: 'REVIEW' },
-    { id: '4', text: 'Configure CI pipeline', done: false, priority: 'low', phase: 'BUILD' },
-    { id: '5', text: 'Deploy to staging', done: false, priority: 'medium', phase: 'DEPLOY' },
-    { id: '6', text: 'Performance audit', done: false, priority: 'low', phase: 'REVIEW' },
-];
+import { useTodoContext } from '@/lib/TodoContext';
+import { TodoPhase } from '@/types';
 
 const priorityConfig = {
     high: { icon: Flame, color: 'text-red-400', bg: 'bg-red-500/10' },
@@ -27,7 +12,7 @@ const priorityConfig = {
     low: { icon: Clock, color: 'text-blue-400', bg: 'bg-blue-500/10' }
 };
 
-const phaseColors = {
+const phaseColors: Record<TodoPhase, string> = {
     PLAN: 'border-blue-500/30 text-blue-400',
     BUILD: 'border-emerald-500/30 text-emerald-400',
     REVIEW: 'border-amber-500/30 text-amber-400',
@@ -35,27 +20,22 @@ const phaseColors = {
 };
 
 export function ProjectTodos() {
-    const [todos, setTodos] = useState<TodoItem[]>(INITIAL_TODOS);
+    const { state, dispatch } = useTodoContext();
+    const todos = state.todos;
     const [newTodo, setNewTodo] = useState('');
 
     const toggleTodo = (id: string) => {
-        setTodos(prev => prev.map(t => t.id === id ? { ...t, done: !t.done } : t));
+        dispatch({ type: 'TOGGLE', id });
     };
 
     const addTodo = () => {
         if (!newTodo.trim()) return;
-        setTodos(prev => [...prev, {
-            id: Date.now().toString(),
-            text: newTodo,
-            done: false,
-            priority: 'medium',
-            phase: 'BUILD'
-        }]);
+        dispatch({ type: 'ADD', text: newTodo });
         setNewTodo('');
     };
 
-    const completedCount = todos.filter(t => t.done).length;
-    const progress = (completedCount / todos.length) * 100;
+    const completedCount = todos.filter(t => t.status === 'complete').length;
+    const progress = todos.length > 0 ? (completedCount / todos.length) * 100 : 0;
 
     return (
         <div className="flex flex-col gap-3 h-full min-h-0">
@@ -80,6 +60,7 @@ export function ProjectTodos() {
             {/* Todo List */}
             <div className="flex flex-col gap-1.5 overflow-y-auto flex-1 min-h-0 pr-1 custom-scrollbar">
                 {todos.map((todo) => {
+                    const isDone = todo.status === 'complete';
                     const PriorityIcon = todo.priority ? priorityConfig[todo.priority].icon : Circle;
                     const priorityStyle = todo.priority ? priorityConfig[todo.priority] : { color: 'text-white/20', bg: '' };
 
@@ -89,7 +70,7 @@ export function ProjectTodos() {
                             onClick={() => toggleTodo(todo.id)}
                             className={clsx(
                                 "flex items-center gap-2.5 p-2.5 rounded-lg text-left transition-all group border",
-                                todo.done
+                                isDone
                                     ? "opacity-40 border-transparent"
                                     : "hover:bg-white/5 border-white/5 hover:border-white/10"
                             )}
@@ -97,25 +78,25 @@ export function ProjectTodos() {
                             {/* Checkbox */}
                             <div className={clsx(
                                 "w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-all",
-                                todo.done
+                                isDone
                                     ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-400"
                                     : "border-white/20 group-hover:border-white/40"
                             )}>
-                                {todo.done && <Check size={10} />}
+                                {isDone && <Check size={10} />}
                             </div>
 
                             {/* Content */}
                             <div className="flex-1 min-w-0">
                                 <div className={clsx(
                                     "text-xs truncate",
-                                    todo.done ? "line-through text-white/30" : "text-white/80"
+                                    isDone ? "line-through text-white/30" : "text-white/80"
                                 )}>
                                     {todo.text}
                                 </div>
                             </div>
 
                             {/* Phase Tag */}
-                            {todo.phase && !todo.done && (
+                            {todo.phase && !isDone && (
                                 <span className={clsx(
                                     "text-[8px] font-mono px-1.5 py-0.5 rounded border uppercase opacity-60",
                                     phaseColors[todo.phase]
@@ -125,12 +106,17 @@ export function ProjectTodos() {
                             )}
 
                             {/* Priority */}
-                            {todo.priority && !todo.done && (
+                            {todo.priority && !isDone && (
                                 <PriorityIcon size={12} className={clsx(priorityStyle.color, "opacity-60")} />
                             )}
                         </button>
                     );
                 })}
+                {todos.length === 0 && (
+                    <div className="text-center py-8 text-white/20 text-xs italic">
+                        No active tasks
+                    </div>
+                )}
             </div>
 
             {/* Add Todo */}

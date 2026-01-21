@@ -132,6 +132,7 @@ export interface TodoItem {
   text: string;
   status: TodoStatus;
   phase: TodoPhase;
+  priority?: 'high' | 'medium' | 'low';
   createdAt: number;
   updatedAt: number;
 }

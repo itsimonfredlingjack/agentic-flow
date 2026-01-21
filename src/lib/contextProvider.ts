@@ -9,6 +9,7 @@
  */
 
 import { RoleId, ROLES } from './roles';
+import { TodoItem } from '@/types';
 
 // Phase output storage (in-memory for now, can be persisted to ledger)
 export interface PhaseOutput {
@@ -24,6 +25,7 @@ export interface SessionContext {
   errorLog: string[];
   relevantFiles: string[];
   userRequest: string;
+  todos: TodoItem[];
 }
 
 // Create fresh session context
@@ -32,7 +34,8 @@ export function createSessionContext(): SessionContext {
     phaseOutputs: new Map(),
     errorLog: [],
     relevantFiles: [],
-    userRequest: ''
+    userRequest: '',
+    todos: []
   };
 }
 
@@ -123,26 +126,28 @@ export function buildPhasePrompt(
   context: SessionContext
 ): string {
   let prompt = ROLES[phase].systemPrompt;
+  const todoContext = formatTodos(context.todos);
 
   // Replace context placeholders based on phase
   switch (phase) {
-    case 'PLAN':
-      prompt = prompt.replace('{{projectInfo}}',
-        context.userRequest
+    case 'PLAN': {
+      const info = context.userRequest
           ? `Current request: "${context.userRequest}"`
-          : ''
-      );
+          : '';
+      prompt = prompt.replace('{{projectInfo}}', `${info}\n\n${todoContext}`);
       prompt = prompt.replace('{{userRequest}}',
         context.userRequest || 'No request provided'
       );
       break;
+    }
 
     case 'BUILD': {
       const planOutput = context.phaseOutputs.get('PLAN');
       prompt = prompt.replace('{{planContext}}',
-        planOutput
+        (planOutput
           ? `PLAN PHASE OUTPUT:\n${planOutput.summary}`
-          : 'No plan provided. Ask the user to clarify requirements.'
+          : 'No plan provided. Ask the user to clarify requirements.') +
+        `\n\n${todoContext}`
       );
       prompt = prompt.replace('{{errorContext}}',
         context.errorLog.length > 0
@@ -198,6 +203,27 @@ export function setUserRequest(context: SessionContext, request: string): void {
   context.userRequest = request;
 }
 
+// Update todos in context
+export function setTodos(context: SessionContext, todos: TodoItem[]): void {
+  context.todos = todos;
+}
+
+// Format todos for prompt injection
+function formatTodos(todos: TodoItem[]): string {
+  if (todos.length === 0) return '';
+
+  const lines = todos.map(t => {
+      let mark = ' ';
+      if (t.status === 'complete') mark = 'x';
+      else if (t.status === 'active') mark = '>';
+      else if (t.status === 'struck') mark = '~';
+
+      return `- [${mark}] ${t.text}`;
+  });
+
+  return `CURRENT TASK LIST (Source of Truth):\n${lines.join('\n')}\n\nIMPORTANT: The list above reflects the current state. Update status in your response using the same [ ] format.`;
+}
+
 // Get context summary for debugging/display
 export function getContextSummary(context: SessionContext): string {
   const phases = Array.from(context.phaseOutputs.keys());
@@ -205,6 +231,7 @@ export function getContextSummary(context: SessionContext): string {
     `Phases completed: ${phases.join(' → ') || 'none'}`,
     `Errors logged: ${context.errorLog.length}`,
     `Files tracked: ${context.relevantFiles.length}`,
-    `Current request: ${context.userRequest || 'none'}`
+    `Current request: ${context.userRequest || 'none'}`,
+    `Todos: ${context.todos.length}`
   ].join('\n');
 }
