@@ -435,6 +435,7 @@ export function TerminalLayout({
   }, [artifacts]);
 
   const selectedInspectorItem = inspectorItems.find((item) => item.id === selectedInspectorId) || inspectorItems[0];
+  const selectedArtifact = artifacts.find((artifact) => artifact.id === selectedArtifactId) || artifacts[0];
   const showRightPanel = mode !== 'focus';
   const showLeftRail = mode !== 'focus' && timelineVisible;
   const activeAgent = agents.find((agent) => agent.id === currentRole);

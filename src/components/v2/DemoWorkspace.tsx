@@ -187,39 +187,39 @@ export function DemoWorkspace() {
 
   const nanoSteps = useMemo(() => {
     if (currentPhase === 'build') {
-      const steps = [
-        { id: 'scaffold', label: 'Scaffolding', status: 'pending' as const },
-        { id: 'codegen', label: 'Codegen', status: 'pending' as const },
-        { id: 'verify', label: 'Verifying', status: 'pending' as const },
-        { id: 'complete', label: 'Complete', status: 'pending' as const },
+      const steps: Array<{ id: string; label: string; status: 'pending' | 'active' | 'completed' | 'blocked' }> = [
+        { id: 'scaffold', label: 'Scaffolding', status: 'pending' },
+        { id: 'codegen', label: 'Codegen', status: 'pending' },
+        { id: 'verify', label: 'Verifying', status: 'pending' },
+        { id: 'complete', label: 'Complete', status: 'pending' },
       ];
 
-      if (snapshot.matches('build.scaffolding')) {
+      if (snapshot.matches({ build: 'scaffolding' })) {
         steps[0].status = 'active';
         return steps;
       }
 
-      if (snapshot.matches('build.codegen')) {
+      if (snapshot.matches({ build: 'codegen' })) {
         steps[0].status = 'completed';
         steps[1].status = 'active';
         return steps;
       }
 
-      if (snapshot.matches('build.verifying')) {
+      if (snapshot.matches({ build: 'verifying' })) {
         steps[0].status = 'completed';
         steps[1].status = 'completed';
         steps[2].status = 'active';
         return steps;
       }
 
-      if (snapshot.matches('build.failure')) {
+      if (snapshot.matches({ build: 'failure' })) {
         steps[0].status = 'completed';
         steps[1].status = 'completed';
         steps[2].status = 'blocked';
         return steps;
       }
 
-      if (snapshot.matches('build.complete')) {
+      if (snapshot.matches({ build: 'complete' })) {
         steps[0].status = 'completed';
         steps[1].status = 'completed';
         steps[2].status = 'completed';
@@ -231,17 +231,17 @@ export function DemoWorkspace() {
     }
 
     if (currentPhase === 'review') {
-      const steps = [
-        { id: 'locked', label: 'Gate Locked', status: 'pending' as const },
-        { id: 'unlocked', label: 'Gate Open', status: 'pending' as const },
+      const steps: Array<{ id: string; label: string; status: 'pending' | 'active' | 'completed' | 'blocked' }> = [
+        { id: 'locked', label: 'Gate Locked', status: 'pending' },
+        { id: 'unlocked', label: 'Gate Open', status: 'pending' },
       ];
 
-      if (snapshot.matches('review.locked')) {
+      if (snapshot.matches({ review: 'locked' })) {
         steps[0].status = 'active';
         return steps;
       }
 
-      if (snapshot.matches('review.unlocked')) {
+      if (snapshot.matches({ review: 'unlocked' })) {
         steps[0].status = 'completed';
         steps[1].status = 'active';
         return steps;
@@ -251,19 +251,19 @@ export function DemoWorkspace() {
     }
 
     if (currentPhase === 'deploy') {
-      const steps = [
-        { id: 'deploying', label: 'Deploying', status: 'active' as const },
-        { id: 'live', label: 'Live', status: 'pending' as const },
+      const steps: Array<{ id: string; label: string; status: 'pending' | 'active' | 'completed' | 'blocked' }> = [
+        { id: 'deploying', label: 'Deploying', status: 'active' },
+        { id: 'live', label: 'Live', status: 'pending' },
       ];
 
       return steps;
     }
 
-    const steps = [
-      { id: 'analyze', label: 'Analyzing', status: 'pending' as const },
-      { id: 'plan', label: 'Planning', status: 'pending' as const },
-      { id: 'validate', label: 'Validating', status: 'pending' as const },
-      { id: 'handoff', label: 'Handoff', status: 'pending' as const },
+    const steps: Array<{ id: string; label: string; status: 'pending' | 'active' | 'completed' | 'blocked' }> = [
+      { id: 'analyze', label: 'Analyzing', status: 'pending' },
+      { id: 'plan', label: 'Planning', status: 'pending' },
+      { id: 'validate', label: 'Validating', status: 'pending' },
+      { id: 'handoff', label: 'Handoff', status: 'pending' },
     ];
 
     if (snapshot.matches('security_lockdown')) {
@@ -271,25 +271,25 @@ export function DemoWorkspace() {
       return steps;
     }
 
-    if (snapshot.matches('plan.analyzing')) {
+    if (snapshot.matches({ plan: 'analyzing' })) {
       steps[0].status = 'active';
       return steps;
     }
 
-    if (snapshot.matches('plan.drafting')) {
+    if (snapshot.matches({ plan: 'drafting' })) {
       steps[0].status = 'completed';
       steps[1].status = 'active';
       return steps;
     }
 
-    if (snapshot.matches('plan.reviewing_plan')) {
+    if (snapshot.matches({ plan: 'reviewing_plan' })) {
       steps[0].status = 'completed';
       steps[1].status = 'completed';
       steps[2].status = 'active';
       return steps;
     }
 
-    if (snapshot.matches('plan.approved')) {
+    if (snapshot.matches({ plan: 'approved' })) {
       steps[0].status = 'completed';
       steps[1].status = 'completed';
       steps[2].status = 'completed';
@@ -417,12 +417,12 @@ Artifact(id, runId, name, checksum)
       return;
     }
 
-    if (snapshot.matches('build.failure')) {
+    if (snapshot.matches({ build: 'failure' })) {
       send({ type: 'RETRY' });
       return;
     }
 
-    if (snapshot.matches('review.locked')) {
+    if (snapshot.matches({ review: 'locked' })) {
       send({ type: 'UNLOCK_GATE' });
       return;
     }
@@ -464,7 +464,7 @@ Artifact(id, runId, name, checksum)
     send({ type: 'SET_STAGE', stage: 'build' });
   };
 
-  const isReviewLocked = snapshot.matches('review.locked');
+  const isReviewLocked = snapshot.matches({ review: 'locked' });
   const isLockdown = snapshot.matches('security_lockdown');
 
   const agents = [
