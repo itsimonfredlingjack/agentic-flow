@@ -29,11 +29,15 @@ const HANDOFF_RUN_KEY = 'llm-creative-demo-run-id';
 
 const loadRunId = () => {
   if (typeof window === 'undefined') return generateRunId();
-  const existing = window.localStorage.getItem(HANDOFF_RUN_KEY);
-  if (existing) return existing;
-  const next = generateRunId();
-  window.localStorage.setItem(HANDOFF_RUN_KEY, next);
-  return next;
+  try {
+    const existing = window.localStorage.getItem(HANDOFF_RUN_KEY);
+    if (existing) return existing;
+    const next = generateRunId();
+    window.localStorage.setItem(HANDOFF_RUN_KEY, next);
+    return next;
+  } catch {
+    return generateRunId();
+  }
 };
 
 const demoOutputs: OutputItem[] = [
@@ -64,10 +68,10 @@ Ready to hand off to the Engineer for implementation.`,
 ];
 
 const demoExecutionTasks: ExecutionTask[] = [
-  { id: '1', text: 'Set up base terminal UI components', status: 'completed' },
-  { id: '2', text: 'Implement agent state machine', status: 'in-progress' },
-  { id: '3', text: 'Add role-based response handling', status: 'pending' },
-  { id: '4', text: 'Create transition animations', status: 'pending' },
+  { id: '1', text: 'Set up base terminal UI components', status: 'completed', eta: '~2 min', progress: 1 },
+  { id: '2', text: 'Implement agent state machine', status: 'in-progress', eta: '~5 min', progress: 0.25 },
+  { id: '3', text: 'Add role-based response handling', status: 'pending', eta: '~4 min', progress: 0 },
+  { id: '4', text: 'Create transition animations', status: 'pending', eta: '~3 min', progress: 0 },
 ];
 
 const diffArtifacts = (current: PhaseArtifact[], previous: PhaseArtifact[]) => {
@@ -446,7 +450,11 @@ Artifact(id, runId, name, checksum)
     const nextId = generateRunId();
     setSessionId(nextId);
     if (typeof window !== 'undefined') {
-      window.localStorage.setItem(HANDOFF_RUN_KEY, nextId);
+      try {
+        window.localStorage.setItem(HANDOFF_RUN_KEY, nextId);
+      } catch {
+        // ignore storage errors (private mode / blocked storage)
+      }
     }
     setLastHandoffArtifacts([]);
     setLastHandoffAt(null);
@@ -496,110 +504,6 @@ Artifact(id, runId, name, checksum)
         tokenCounts={{ input: 1247, output: 856, total: 2103 }}
         tokenLimit={8000}
         tokenWarnAt={0.8}
-        headerActions={(
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleNextStep}
-              className="shortcut-pill shortcut-pill--interactive"
-              title="Advance to next step"
-            >
-              Next
-            </button>
-            <button
-              type="button"
-              onClick={handleUnlockGate}
-              className="shortcut-pill shortcut-pill--interactive"
-              title="Unlock review gate"
-              disabled={!isReviewLocked}
-            >
-              Unlock
-            </button>
-            <button
-              type="button"
-              onClick={handleResetFlow}
-              className="shortcut-pill shortcut-pill--interactive"
-              title="Reset flow"
-            >
-              Reset
-            </button>
-            <button
-              type="button"
-              onClick={handleLockdown}
-              className="shortcut-pill shortcut-pill--interactive"
-              title="Trigger security lockdown"
-              disabled={isLockdown}
-            >
-              Lockdown
-            </button>
-            <button
-              type="button"
-              onClick={handleGoDeploy}
-              className="shortcut-pill shortcut-pill--interactive"
-              title="Jump to deploy phase"
-            >
-              Deploy
-            </button>
-            <button
-              type="button"
-              onClick={handleGoReview}
-              className="shortcut-pill shortcut-pill--interactive"
-              title="Jump to review phase"
-            >
-              Review
-            </button>
-            <button
-              type="button"
-              onClick={handleGoBuild}
-              className="shortcut-pill shortcut-pill--interactive"
-              title="Jump to build phase"
-            >
-              Build
-            </button>
-            <button
-              type="button"
-              onClick={handleGoDeploy}
-              className="shortcut-pill shortcut-pill--interactive"
-              title="Jump to deploy phase"
-            >
-              Deploy
-            </button>
-            <button
-              type="button"
-              onClick={handleGoReview}
-              className="shortcut-pill shortcut-pill--interactive"
-              title="Jump to review phase"
-            >
-              Review
-            </button>
-            <button
-              type="button"
-              onClick={handleGoBuild}
-              className="shortcut-pill shortcut-pill--interactive"
-              title="Jump to build phase"
-            >
-              Build
-            </button>
-            <button
-              type="button"
-              onClick={() => setAIPairOpen(!aiPairOpen)}
-              className="shortcut-pill shortcut-pill--interactive"
-              title="AI Pair Programming"
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              Pair
-            </button>
-            <button
-              type="button"
-              onClick={() => setCanvasOpen(!canvasOpen)}
-              className="shortcut-pill shortcut-pill--interactive"
-              title="Code Canvas"
-            >
-              <Maximize2 className="w-3.5 h-3.5" />
-              Canvas
-            </button>
-          </div>
-        )}
       />
 
       <PhaseGateModal

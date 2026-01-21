@@ -127,8 +127,8 @@ export function RoleSelector({
 
         // Build class names
         const stateClasses = {
-          active: 'text-[var(--text-primary)] bg-[var(--bg-elevated)]',
-          available: 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface)]',
+          active: 'text-[var(--text-primary)]',
+          available: 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]',
           completed: 'text-[var(--text-secondary)]',
           locked: 'text-[var(--text-tertiary)] opacity-50 cursor-not-allowed',
         };
@@ -146,8 +146,7 @@ export function RoleSelector({
               ${state === 'locked' ? 'role-tab--locked' : ''}
               ${isEntering ? 'role-tab--entering' : ''}
               ${isExiting ? 'role-tab--exiting' : ''}
-              relative flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium
-              transition-all duration-150
+              relative flex items-center gap-1.5 transition-all duration-150
               ${stateClasses[state]}
             `}
             title={`${role.label} (⌘${index + 1})`}
@@ -171,7 +170,7 @@ export function RoleSelector({
 
             {/* Underline indicator */}
             <span
-              className="role-tab__underline absolute bottom-0 left-2 right-2 h-0.5 rounded-full transition-transform duration-200"
+              className="role-tab__underline absolute bottom-0 left-0 right-0 h-0.5 transition-transform duration-200"
               style={{
                 backgroundColor: role.color,
                 transform: state === 'active' ? 'scaleX(1)' : 'scaleX(0)',

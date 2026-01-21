@@ -153,7 +153,7 @@ export function PhaseGateModal({
 
           <div className="phase-gate-modal__artifacts">
             <div className="phase-gate-modal__artifacts-header">
-              <h3 className="phase-gate-modal__artifacts-title">Transfer Package</h3>
+              <h3 className="phase-gate-modal__artifacts-title">TRANSFER PACKAGE</h3>
               <span className="phase-gate-modal__artifacts-count">
                 {artifacts.length} items
               </span>

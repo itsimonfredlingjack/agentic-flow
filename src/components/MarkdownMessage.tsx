@@ -80,6 +80,8 @@ function getGlowClass(language: string | undefined): string {
 type MarkdownMessageProps = {
     content: string;
     className?: string;
+    timestampLabel?: string;
+    showTimestamps?: boolean;
 };
 
 const normalizeLanguage = (language: string | undefined) => {
@@ -363,7 +365,7 @@ function CodeFence({
                         }}
                         codeTagProps={{
                             style: {
-                                fontFamily: 'var(--font-geist-mono), monospace',
+                                fontFamily: 'var(--font-terminal), var(--font-geist-mono), monospace',
                             },
                         }}
                     >
@@ -375,29 +377,39 @@ function CodeFence({
     );
 }
 
-export function MarkdownMessage({ content, className }: MarkdownMessageProps) {
+export function MarkdownMessage({ content, className, timestampLabel, showTimestamps = false }: MarkdownMessageProps) {
     const { thinking, rest } = useMemo(() => parseThinkingBlocks(content), [content]);
     const trimmed = useMemo(() => rest.trimEnd(), [rest]);
+    const timestamp = timestampLabel ? `[${timestampLabel}]` : null;
+    const wrapTimestamp = useCallback((node: React.ReactNode) => {
+        if (!showTimestamps || !timestamp) return node;
+        return (
+            <div className="terminal-markdown__row">
+                <span className="terminal-markdown__ts">{timestamp}</span>
+                <div className="terminal-markdown__content">{node}</div>
+            </div>
+        );
+    }, [showTimestamps, timestamp]);
 
     return (
-        <div className={clsx("text-gray-300 leading-relaxed font-sans", className)}>
+        <div className={clsx("text-[var(--text-primary)] leading-relaxed font-mono", className)}>
             {thinking && <ThinkingBlock content={thinking} defaultExpanded={false} />}
 
             <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
                 components={{
                     p({ children }) {
-                        return <p className="mb-4 last:mb-0 leading-7">{children}</p>;
+                        return wrapTimestamp(<p className="mb-4 last:mb-0 leading-7">{children}</p>);
                     },
                     ul({ children }) {
-                        return <ul className="mb-4 last:mb-0 ml-6 list-disc space-y-1">{children}</ul>;
+                        return wrapTimestamp(<ul className="mb-4 last:mb-0 ml-6 list-disc space-y-1">{children}</ul>);
                     },
                     ol({ children }) {
-                        return <ol className="mb-4 last:mb-0 ml-6 list-decimal space-y-1">{children}</ol>;
+                        return wrapTimestamp(<ol className="mb-4 last:mb-0 ml-6 list-decimal space-y-1">{children}</ol>);
                     },
-                    h1({ children }) { return <h1 className="text-xl font-bold text-white mt-6 mb-4">{children}</h1>; },
-                    h2({ children }) { return <h2 className="text-lg font-bold text-white mt-5 mb-3">{children}</h2>; },
-                    h3({ children }) { return <h3 className="text-md font-bold text-white mt-4 mb-2">{children}</h3>; },
+                    h1({ children }) { return wrapTimestamp(<h1 className="text-[18px] font-bold text-[var(--text-primary)] mt-6 mb-4">{children}</h1>); },
+                    h2({ children }) { return wrapTimestamp(<h2 className="text-[16px] font-bold text-[var(--text-primary)] mt-5 mb-3">{children}</h2>); },
+                    h3({ children }) { return wrapTimestamp(<h3 className="text-[16px] font-bold text-[var(--text-primary)] mt-4 mb-2">{children}</h3>); },
                     a({ children, href }) {
                         return (
                             <a
@@ -436,7 +448,7 @@ export function MarkdownMessage({ content, className }: MarkdownMessageProps) {
                         return <CodeFence language={language || undefined} filePath={resolvedPath} value={finalValue} />; 
                     },
                     pre({ children }) {
-                        return <>{children}</>;
+                        return wrapTimestamp(<>{children}</>);
                     },
                 }}
             >

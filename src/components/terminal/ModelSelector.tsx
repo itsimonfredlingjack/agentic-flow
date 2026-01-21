@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from 'react';
-import { ChevronDown, Check, Loader2, AlertCircle, Cpu, Cloud } from 'lucide-react';
+import { ChevronDown, Check, Loader2, AlertCircle, Cpu, Cloud, Zap } from 'lucide-react';
 
 export type ModelStatus = 'ready' | 'loading' | 'error';
 
@@ -86,13 +86,17 @@ export function ModelSelector({
     setIsOpen(false);
   };
 
+  const modelMeta = [currentModelInfo?.contextSize, currentModelInfo?.description].filter(Boolean).join(' • ');
+
   return (
     <div ref={dropdownRef} className="relative">
       {/* Trigger button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center gap-2 px-2.5 py-1.5 bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-md hover:border-[var(--text-tertiary)] transition-colors"
+        title={modelMeta ? `${displayName} • ${modelMeta}` : displayName}
       >
+        <Zap className="w-3.5 h-3.5 text-[var(--accent-sky)]" />
         {statusIcon}
         <span className="text-xs font-medium text-[var(--text-primary)] max-w-[120px] truncate">
           {displayName}

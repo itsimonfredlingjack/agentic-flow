@@ -126,16 +126,20 @@ export function TodoProvider({ children }: { children: React.ReactNode }) {
 
     // Load from local storage on mount
     useEffect(() => {
-        const stored = localStorage.getItem(STORAGE_KEY);
-        if (stored) {
-            try {
-                const parsed = JSON.parse(stored);
-                if (Array.isArray(parsed)) {
-                    dispatch({ type: 'SET', todos: parsed });
+        try {
+            const stored = localStorage.getItem(STORAGE_KEY);
+            if (stored) {
+                try {
+                    const parsed = JSON.parse(stored);
+                    if (Array.isArray(parsed)) {
+                        dispatch({ type: 'SET', todos: parsed });
+                    }
+                } catch (e) {
+                    console.error('Failed to parse todos from local storage', e);
                 }
-            } catch (e) {
-                console.error('Failed to parse todos from local storage', e);
             }
+        } catch {
+            // ignore storage errors
         }
         setIsLoaded(true);
     }, []);
@@ -143,7 +147,11 @@ export function TodoProvider({ children }: { children: React.ReactNode }) {
     // Save to local storage on change
     useEffect(() => {
         if (isLoaded) {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(state.todos));
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(state.todos));
+            } catch {
+                // ignore storage errors
+            }
         }
     }, [state.todos, isLoaded]);
 

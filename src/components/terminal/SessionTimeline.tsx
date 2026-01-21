@@ -37,6 +37,7 @@ export function SessionTimeline({
         const isCompleted = state === 'completed';
         const isUpcoming = state === 'available' || state === 'locked';
         const Icon = role.icon;
+        const tooltip = `${role.label} • ${state.replace('-', ' ')} • elapsed: —`;
 
         const canClick = state !== 'locked' && onSelectRole;
 
@@ -63,6 +64,7 @@ export function SessionTimeline({
                 ${isUpcoming ? 'session-timeline__item--upcoming' : ''}
                 ${canClick ? 'cursor-pointer hover:bg-[var(--bg-elevated)]' : ''}
               `}
+              data-tooltip={tooltip}
             >
               {/* Status icon */}
               <div className="session-timeline__icon">
