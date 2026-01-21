@@ -47,7 +47,7 @@ export function CommandInput({
 
   const defaultPlaceholder = '';
   const inputMaxHeight = 250;
-  const inputMinHeight = 100;
+  const inputMinHeight = 24;
   const approxTokens = Math.ceil(value.length / 4);
   const warnThreshold = tokenLimit ? Math.round(tokenLimit * (tokenWarnAt ?? 0.8)) : null;
   const showTokenCounter = tokenLimit !== undefined && warnThreshold !== null && approxTokens >= warnThreshold;
@@ -347,8 +347,8 @@ export function CommandInput({
       <div 
         className="terminal-input__surface flex items-start gap-3 transition-colors"
         style={{ 
-          minHeight: '100px',
-          padding: '24px',
+          minHeight: 'auto',
+          padding: '12px',
         }}
       >
         {/* Mode indicator */}

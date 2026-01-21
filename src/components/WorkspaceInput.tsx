@@ -254,9 +254,9 @@ export function WorkspaceInput({ config, onSend, onSystemCommand }: WorkspaceInp
     };
 
     return (
-        <div className="p-4 shrink-0 z-20 bg-[#050505] border-t border-white/10">
+        <div className="px-4 py-3 shrink-0 z-20 bg-[var(--bg-base)] border-t border-white/10">
             <div className={clsx(
-                "relative group flex items-stretch overflow-hidden rounded-xl",
+                "relative group flex items-stretch overflow-hidden rounded-lg",
                 "border border-white/10 transition-all duration-200",
                 "focus-within:border-white/20 focus-within:bg-black/40",
                 "focus-within:shadow-[0_0_20px_rgba(255,255,255,0.05)]"
@@ -295,12 +295,12 @@ export function WorkspaceInput({ config, onSend, onSystemCommand }: WorkspaceInp
                 )}
 
                 {/* Prefix Icon */}
-                <div className="w-10 flex items-start pt-3 justify-center text-white/30 group-focus-within:text-white/50 transition-colors">
+                <div className="w-10 flex items-center justify-center text-white/30 group-focus-within:text-white/50 transition-colors">
                     <span className="font-mono text-lg">❯</span>
                 </div>
 
                 <div className="flex-1 flex flex-col py-2">
-                    <div className="flex flex-wrap gap-1 min-h-[18px] text-[10px] uppercase tracking-wider text-white/40">
+                    <div className="flex flex-wrap gap-1 text-[10px] uppercase tracking-wider text-white/40">
                         {(() => {
                             const preview = parseInput(inputValue);
                             if (!inputValue.trim()) return null;
@@ -371,7 +371,7 @@ export function WorkspaceInput({ config, onSend, onSystemCommand }: WorkspaceInp
                             }
                         }}
                         placeholder={config.placeholder}
-                        className="flex-1 bg-transparent border-none focus:ring-0 text-white/90 placeholder:text-white/20 resize-none px-0 min-h-[48px] max-h-[200px] text-sm font-mono leading-relaxed focus:outline-none"
+                        className="flex-1 bg-transparent border-none focus:ring-0 text-white/90 placeholder:text-white/20 resize-none px-0 min-h-[24px] max-h-[200px] text-sm font-mono leading-relaxed focus:outline-none"
                     />
                 </div>
 
