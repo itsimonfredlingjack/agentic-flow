@@ -68,6 +68,17 @@ pre, code, kbd, samp, .font-mono {
   font-family: var(--font-geist-mono), ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, monospace;
 }
 
+/* Terminal-specific mono */
+.terminal-output,
+.terminal-output pre,
+.terminal-output code,
+.terminal-input__field,
+.terminal-prompt,
+.output-block__header,
+.output-block__body {
+  font-family: var(--font-terminal), var(--font-geist-mono), ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, monospace;
+}
+
 /* Custom Scrollbar - Minimal */
 ::-webkit-scrollbar {
   width: 8px;
@@ -556,7 +567,6 @@ input::placeholder, textarea::placeholder {
   padding: 8px 12px;
   background: var(--bg-elevated);
   border-bottom: 1px solid var(--border-subtle);
-  font-family: var(--font-geist-mono), monospace;
   font-size: 13px;
   cursor: pointer;
   user-select: none;
@@ -640,7 +650,6 @@ input::placeholder, textarea::placeholder {
 
 .output-block__body {
   padding: 12px;
-  font-family: var(--font-geist-mono), monospace;
   font-size: 13px;
   line-height: 1.5;
   white-space: pre-wrap;
@@ -1161,6 +1170,66 @@ input::placeholder, textarea::placeholder {
 
 .terminal-input {
   padding: 0 0.75rem 0.75rem;
+}
+
+.terminal-prompt {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.terminal-cursor {
+  display: inline-block;
+  width: 0.6ch;
+  height: 1.1em;
+  background: currentColor;
+  margin-left: 2px;
+  border-radius: 1px;
+  animation: terminal-cursor-blink 1s steps(1) infinite;
+}
+
+@keyframes terminal-cursor-blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+.terminal-output {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-primary);
+}
+
+.terminal-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.terminal-line__ts {
+  width: 3.5rem;
+  flex: none;
+  text-align: right;
+  color: var(--text-tertiary);
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+}
+
+.terminal-line__text {
+  white-space: pre-wrap;
+  word-break: break-word;
+  flex: 1;
+}
+
+.terminal-line__typing {
+  align-self: flex-start;
+  color: var(--accent-emerald);
+  font-weight: 700;
+  animation: terminal-cursor-blink 1s steps(1) infinite;
 }
 
 .panel-tabs {

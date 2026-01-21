@@ -484,6 +484,12 @@ export function TerminalLayout({
     REVIEW: 'Critic',
     DEPLOY: 'Deployer',
   };
+  const roleHandles: Record<RoleId, string> = {
+    PLAN: 'architect',
+    BUILD: 'engineer',
+    REVIEW: 'critic',
+    DEPLOY: 'deployer',
+  };
 
   const roleShellClass = {
     PLAN: 'terminal-shell--architect',
@@ -740,6 +746,11 @@ export function TerminalLayout({
               disabled={agentStatus === 'running' || agentStatus === 'thinking'}
               onFocusCycle={(direction) => handleFocusCycle('input', direction)}
               inputRef={inputRef}
+              promptLabel={
+                inputMode === 'shell'
+                  ? 'terminal@llm-creative:~$'
+                  : `${roleHandles[currentRole]}@llm-creative:~$`
+              }
             />
           </section>
 

@@ -12,6 +12,7 @@ interface CommandInputProps {
   disabled?: boolean;
   placeholder?: string;
   inputRef?: React.RefObject<HTMLTextAreaElement | null>;
+  promptLabel?: string;
 }
 
 export function CommandInput({
@@ -22,6 +23,7 @@ export function CommandInput({
   disabled = false,
   placeholder,
   inputRef,
+  promptLabel,
 }: CommandInputProps) {
   const [value, setValue] = useState('');
   const [history, setHistory] = useState<string[]>([]);
@@ -117,6 +119,9 @@ export function CommandInput({
   const promptClass = mode === 'shell' 
     ? 'text-[var(--accent-emerald)]' 
     : 'text-[var(--accent-violet)]';
+  const promptText = promptLabel ?? (mode === 'shell'
+    ? 'terminal@llm-creative:~$'
+    : 'architect@llm-creative:~$');
 
   return (
     <div className="terminal-input">
@@ -129,17 +134,18 @@ export function CommandInput({
       >
         {/* Mode indicator */}
         <span 
-          className={`font-mono font-bold ${promptClass}`}
-          style={{ fontSize: '16px' }}
+          className={`terminal-prompt ${promptClass}`}
+          style={{ fontSize: '13px' }}
         >
-          {mode === 'shell' ? '>' : '@'}
+          {promptText}
+          <span className="terminal-cursor" aria-hidden="true" />
         </span>
         
         {/* Input field */}
         <textarea
           ref={resolvedRef}
           rows={1}
-          className="flex-1 bg-transparent text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] outline-none resize-none"
+          className="terminal-input__field flex-1 bg-transparent text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] outline-none resize-none"
           style={{
             fontSize: '14px',
             lineHeight: '1.5',

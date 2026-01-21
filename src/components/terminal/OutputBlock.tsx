@@ -50,6 +50,9 @@ export function OutputBlock({
   const [prevStatus, setPrevStatus] = useState(status);
   const [animateStatus, setAnimateStatus] = useState<'success' | 'error' | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
+  const displayedRef = useRef(content);
+  const [displayedContent, setDisplayedContent] = useState(content);
+  const [isTyping, setIsTyping] = useState(false);
 
   // Track status changes for animations
   useEffect(() => {
@@ -71,6 +74,11 @@ export function OutputBlock({
       contentRef.current.scrollTop = contentRef.current.scrollHeight;
     }
   }, [content, collapsed, status]);
+
+  const updateDisplayed = (value: string) => {
+    displayedRef.current = value;
+    setDisplayedContent(value);
+  };
 
   const statusIcon = {
     running: <Loader2 className="w-3.5 h-3.5 animate-spin text-[var(--accent-sky)]" />,
@@ -141,6 +149,51 @@ export function OutputBlock({
 
   const isFileTree = content && isFileTreeContent(content);
 
+  useEffect(() => {
+    if (!content) {
+      updateDisplayed(content);
+      setIsTyping(false);
+      return;
+    }
+
+    if (type !== 'agent' || status === 'running' || isFileTree) {
+      updateDisplayed(content);
+      setIsTyping(false);
+      return;
+    }
+
+    const total = content.length;
+    const current = displayedRef.current;
+    let index = current && content.startsWith(current) ? current.length : 0;
+
+    if (index >= total) {
+      updateDisplayed(content);
+      setIsTyping(false);
+      return;
+    }
+
+    setIsTyping(true);
+    const stepSize = total > 2400 ? 6 : total > 1200 ? 3 : total > 600 ? 2 : 1;
+    const delay = 12;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    const tick = () => {
+      index = Math.min(index + stepSize, total);
+      updateDisplayed(content.slice(0, index));
+      if (index < total) {
+        timer = setTimeout(tick, delay);
+      } else {
+        setIsTyping(false);
+      }
+    };
+
+    timer = setTimeout(tick, delay);
+
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [content, status, type, isFileTree]);
+
   // Render content based on type
   const renderContent = () => {
     if (!content && status === 'running') {
@@ -165,13 +218,25 @@ export function OutputBlock({
     }
 
     if (type === 'agent' && hasMarkdown) {
-      return <MarkdownMessage content={content} className="text-sm" />;
+      return <MarkdownMessage content={displayedContent} className="text-sm" />;
     }
 
+    const lines = (displayedContent || '').split('\n');
+
     return (
-      <pre className="font-mono text-sm text-[var(--text-primary)] whitespace-pre-wrap break-words leading-relaxed">
-        {content}
-      </pre>
+      <div className="terminal-output">
+        {lines.map((line, index) => (
+          <div key={`${id}-line-${index}`} className="terminal-line">
+            {timestamp && (
+              <span className="terminal-line__ts">{timestamp}</span>
+            )}
+            <span className="terminal-line__text">
+              {line.length > 0 ? line : '\u00A0'}
+            </span>
+          </div>
+        ))}
+        {isTyping && <span className="terminal-line__typing">█</span>}
+      </div>
     );
   };
 
