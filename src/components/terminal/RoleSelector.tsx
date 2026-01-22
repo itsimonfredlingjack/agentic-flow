@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
-import { Compass, Wrench, Eye, Rocket, Check } from 'lucide-react';
 
 export type RoleId = 'PLAN' | 'BUILD' | 'REVIEW' | 'DEPLOY';
 export type RoleState = 'active' | 'available' | 'completed' | 'locked';
@@ -9,16 +8,14 @@ export type RoleState = 'active' | 'available' | 'completed' | 'locked';
 interface Role {
   id: RoleId;
   label: string;
-  icon: React.ElementType;
-  color: string;
   cssClass: string;
 }
 
 const ROLES: Role[] = [
-  { id: 'PLAN', label: 'Architect', icon: Compass, color: 'var(--agent-architect)', cssClass: 'architect' },
-  { id: 'BUILD', label: 'Engineer', icon: Wrench, color: 'var(--agent-engineer)', cssClass: 'engineer' },
-  { id: 'REVIEW', label: 'Critic', icon: Eye, color: 'var(--agent-critic)', cssClass: 'critic' },
-  { id: 'DEPLOY', label: 'Deployer', icon: Rocket, color: 'var(--agent-deployer)', cssClass: 'deployer' },
+  { id: 'PLAN', label: 'Architect', cssClass: 'architect' },
+  { id: 'BUILD', label: 'Engineer', cssClass: 'engineer' },
+  { id: 'REVIEW', label: 'Critic', cssClass: 'critic' },
+  { id: 'DEPLOY', label: 'Deployer', cssClass: 'deployer' },
 ];
 
 interface RoleSelectorProps {
@@ -118,17 +115,19 @@ export function RoleSelector({
   }, [currentRole, roleStates]);
 
   return (
-    <div className="flex items-center gap-1">
+    <div className="role-tabs-terminal" role="tablist" aria-label="Agent roles">
       {ROLES.map((role, index) => {
         const state = getState(role.id);
-        const Icon = role.icon;
         const isEntering = enteringRole === role.id;
         const isExiting = exitingRole === role.id;
+        const statusSymbol = state === 'completed' ? '✓' : state === 'active' ? '⚙' : state === 'locked' ? '×' : '';
+        const activeMark = state === 'active' ? '*' : '';
+        const tabLabel = `[${index + 1}:${role.label}${activeMark}${statusSymbol}]`;
 
         // Build class names
         const stateClasses = {
-          active: 'text-[var(--text-primary)]',
-          available: 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]',
+          active: 'text-[var(--text-primary)] bg-[var(--bg-elevated)]',
+          available: 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface)]',
           completed: 'text-[var(--text-secondary)]',
           locked: 'text-[var(--text-tertiary)] opacity-50 cursor-not-allowed',
         };
@@ -138,6 +137,11 @@ export function RoleSelector({
             key={role.id}
             onClick={() => handleRoleClick(role.id)}
             disabled={state === 'locked'}
+            aria-label={`Switch role to ${role.label}`}
+            aria-pressed={state === 'active'}
+            role="tab"
+            aria-selected={state === 'active'}
+            data-role={role.id.toLowerCase()}
             className={`
               role-tab role-tab--${role.cssClass}
               ${state === 'active' ? 'role-tab--active' : ''}
@@ -146,36 +150,13 @@ export function RoleSelector({
               ${state === 'locked' ? 'role-tab--locked' : ''}
               ${isEntering ? 'role-tab--entering' : ''}
               ${isExiting ? 'role-tab--exiting' : ''}
-              relative flex items-center gap-1.5 transition-all duration-150
+              role-tab--terminal
+              transition-all duration-150
               ${stateClasses[state]}
             `}
             title={`${role.label} (⌘${index + 1})`}
           >
-            {/* Completed checkmark */}
-            {state === 'completed' && (
-              <Check className="role-tab__check w-3 h-3" />
-            )}
-
-            {/* Icon */}
-            <Icon
-              className={`role-tab__icon w-3.5 h-3.5 transition-all duration-200`}
-              style={{
-                color: state === 'active' ? role.color : undefined,
-                filter: state === 'active' ? `drop-shadow(0 0 4px ${role.color})` : undefined,
-              }}
-            />
-
-            {/* Label */}
-            <span>{role.label}</span>
-
-            {/* Underline indicator */}
-            <span
-              className="role-tab__underline absolute bottom-0 left-0 right-0 h-0.5 transition-transform duration-200"
-              style={{
-                backgroundColor: role.color,
-                transform: state === 'active' ? 'scaleX(1)' : 'scaleX(0)',
-              }}
-            />
+            <span className="role-tab__label">{tabLabel}</span>
           </button>
         );
       })}

@@ -67,19 +67,24 @@ export function SessionTimeline({
               data-tooltip={tooltip}
             >
               {/* Status icon */}
-              <div className="session-timeline__icon">
+              <div
+                className={`
+                  session-timeline__icon
+                  ${isCompleted ? 'session-timeline__icon--completed' : ''}
+                  ${isActive ? 'session-timeline__icon--active' : ''}
+                  ${isUpcoming ? 'session-timeline__icon--upcoming' : ''}
+                `}
+              >
                 {isCompleted ? (
                   <Check
-                    className="w-4 h-4 session-timeline__icon--completed"
-                    style={{ color: 'var(--accent-emerald)' }}
+                    className="w-4 h-4"
                   />
                 ) : isActive ? (
                   <Play
-                    className="w-4 h-4 session-timeline__icon--active"
-                    style={{ color: role.color }}
+                    className="w-4 h-4"
                   />
                 ) : (
-                  <Circle className="w-3 h-3" style={{ color: 'var(--text-tertiary)' }} />
+                  <Circle className="w-3 h-3" />
                 )}
               </div>
 

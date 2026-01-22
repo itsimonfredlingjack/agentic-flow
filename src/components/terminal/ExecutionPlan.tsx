@@ -18,9 +18,31 @@ interface ExecutionPlanProps {
 export function ExecutionPlan({ tasks, title = "EXECUTION PLAN", onSelectTask }: ExecutionPlanProps) {
   const completedCount = tasks.filter(t => t.status === 'completed').length;
   const progress = tasks.length > 0 ? (completedCount / tasks.length) * 100 : 0;
+  const progressLabel = tasks.length > 0 ? `${Math.round(progress)}%` : '0%';
   const nowTasks = tasks.filter(t => t.status === 'in-progress');
   const nextTasks = tasks.filter(t => t.status === 'pending');
   const laterTasks = tasks.filter(t => t.status === 'completed');
+
+  const renderTaskText = (text: string) => {
+    const match = text.match(/~?\d+\s*min/i);
+    if (!match || match.index === undefined) {
+      return <span className="plan-task__text">{text}</span>;
+    }
+
+    const start = match.index;
+    const end = start + match[0].length;
+    const before = text.slice(0, start).trimEnd();
+    const time = text.slice(start, end);
+    const after = text.slice(end).trimStart();
+
+    return (
+      <span className="plan-task__text">
+        {before && <span className="plan-task__label">{before}</span>}
+        <span className="plan-task__time">{time}</span>
+        {after && <span className="plan-task__suffix">{after}</span>}
+      </span>
+    );
+  };
 
   const renderTasks = (groupTasks: ExecutionTask[]) => {
     if (groupTasks.length === 0) {
@@ -50,7 +72,7 @@ export function ExecutionPlan({ tasks, title = "EXECUTION PLAN", onSelectTask }:
               <Circle className="w-3 h-3" />
             )}
           </span>
-          <span className="plan-task__text">{task.text}</span>
+          {renderTaskText(task.text)}
         </button>
       </div>
     ));
@@ -62,9 +84,12 @@ export function ExecutionPlan({ tasks, title = "EXECUTION PLAN", onSelectTask }:
       <div className="plan-progress">
         <div className="plan-progress__header">
           <span className="plan-progress__title">{title}</span>
-          <span className="plan-progress__count">
-            {completedCount}/{tasks.length}
-          </span>
+          <div className="plan-progress__meta">
+            <span className="plan-progress__percent">{progressLabel}</span>
+            <span className="plan-progress__count">
+              {completedCount}/{tasks.length}
+            </span>
+          </div>
         </div>
         <div className="plan-progress__bar">
           <div

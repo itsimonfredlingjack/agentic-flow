@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   TerminalLayout,
   OutputItem,
@@ -56,7 +56,7 @@ const demoExecutionTasks: ExecutionTask[] = [
 ];
 
 export function DemoWorkspace() {
-  const [sessionId, setSessionId] = useState(() => generateRunId());
+  const [sessionId, setSessionId] = useState('RUN-000');
   const [outputs, setOutputs] = useState<OutputItem[]>(demoOutputs);
   const [agentStatus, setAgentStatus] = useState<AgentStatus>('ready');
   const [currentRole, setCurrentRole] = useState<RoleId>('PLAN');
@@ -66,6 +66,10 @@ export function DemoWorkspace() {
     REVIEW: 'available',
     DEPLOY: 'locked',
   });
+
+  useEffect(() => {
+    setSessionId(generateRunId());
+  }, []);
 
   // New feature states
   const [phaseGateOpen, setPhaseGateOpen] = useState(false);

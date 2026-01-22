@@ -12,6 +12,7 @@ interface CommandInputProps {
   disabled?: boolean;
   placeholder?: string;
   inputRef?: React.RefObject<HTMLTextAreaElement | null>;
+  promptLabel?: string;
 }
 
 export function CommandInput({
@@ -22,6 +23,7 @@ export function CommandInput({
   disabled = false,
   placeholder,
   inputRef,
+  promptLabel,
 }: CommandInputProps) {
   const [value, setValue] = useState('');
   const [history, setHistory] = useState<string[]>([]);
@@ -114,25 +116,27 @@ export function CommandInput({
     element.style.height = `${Math.max(nextHeight, 48)}px`;
   }, [value, resolvedRef]);
 
-  const promptClass = mode === 'shell' 
-    ? 'text-[var(--accent-emerald)]' 
+  const promptClass = mode === 'shell'
+    ? 'text-[var(--primary-accent)]'
     : 'text-[var(--accent-violet)]';
+  const promptText = promptLabel ?? (mode === 'shell' ? '>' : '@');
 
   return (
     <div className="terminal-input">
-      <div 
-        className="flex items-start gap-3 bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-lg focus-within:border-[var(--accent-sky)] transition-colors"
-        style={{ 
+      <div
+        className="terminal-input__bar flex items-start gap-3 focus-within:border-[var(--primary-accent)] transition-colors"
+        style={{
           minHeight: '52px',
           padding: '10px 16px',
         }}
       >
         {/* Mode indicator */}
-        <span 
+        <span
           className={`font-mono font-bold ${promptClass}`}
-          style={{ fontSize: '16px' }}
+          style={{ fontSize: '15px' }}
         >
-          {mode === 'shell' ? '>' : '@'}
+          {promptText}
+          <span className="terminal-cursor" aria-hidden="true" />
         </span>
         
         {/* Input field */}
@@ -140,10 +144,11 @@ export function CommandInput({
           ref={resolvedRef}
           rows={1}
           className="flex-1 bg-transparent text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] outline-none resize-none"
+          aria-label="Terminal input"
           style={{
             fontSize: '14px',
-            lineHeight: '1.5',
-            caretColor: 'var(--accent-sky)',
+            lineHeight: '1.55',
+            caretColor: 'var(--primary-accent)',
             maxHeight: '160px',
             overflowY: 'auto',
           }}

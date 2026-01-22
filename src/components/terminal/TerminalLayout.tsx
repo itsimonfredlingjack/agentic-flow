@@ -451,6 +451,12 @@ export function TerminalLayout({
     REVIEW: 'Critic',
     DEPLOY: 'Deployer',
   };
+  const roleHandles: Record<RoleId, string> = {
+    PLAN: 'architect',
+    BUILD: 'engineer',
+    REVIEW: 'critic',
+    DEPLOY: 'deployer',
+  };
 
   const roleOrder: RoleId[] = ['PLAN', 'BUILD', 'REVIEW', 'DEPLOY'];
   const currentRoleIndex = roleOrder.indexOf(currentRole);
@@ -506,88 +512,19 @@ export function TerminalLayout({
   }, [outputs]);
 
   return (
-    <div className="flex h-screen bg-[var(--bg-base)] text-[var(--text-primary)]">
-      {/* Session Timeline Sidebar */}
-      {showLeftRail && (
-        <aside className="hidden lg:flex w-56 border-r border-[var(--border-subtle)] p-3 flex-col gap-3">
-          <SessionTimeline
-            currentRole={currentRole}
-            roleStates={effectiveRoleStates}
-            onSelectRole={onRoleChange}
-          />
-          <div
-            ref={planPanelRef}
-            tabIndex={0}
-            onKeyDown={(e) => {
-              if (e.key === 'Tab') {
-                e.preventDefault();
-                handleFocusCycle('plan', e.shiftKey ? 'prev' : 'next');
-              }
-            }}
-          >
-            <ExecutionPlan tasks={executionTasks} onSelectTask={handlePlanSelect} />
+    <div className="app-shell">
+      <header className="app-chrome">
+        <div className="app-titlebar">
+          <div className="window-controls" aria-hidden="true">
+            <span className="window-dot window-dot--red" />
+            <span className="window-dot window-dot--yellow" />
+            <span className="window-dot window-dot--green" />
           </div>
-        </aside>
-      )}
-
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Header */}
-        <header className="flex items-center gap-3 px-4 py-2 border-b border-[var(--border-subtle)]">
-          <div className="flex items-center gap-3 min-w-[260px]">
-            <button
-              onClick={() => setTimelineVisible(!timelineVisible)}
-              className="p-1.5 text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface)] rounded transition-colors"
-              title="Toggle timeline (⌘B)"
-            >
-              {timelineVisible ? (
-                <PanelLeftClose className="w-4 h-4" />
-              ) : (
-                <PanelLeft className="w-4 h-4" />
-              )}
-            </button>
-
-            <div className="flex flex-col">
-              <span className="text-sm font-medium tracking-tight">LLM Creative</span>
-              <span className="text-xs text-[var(--text-tertiary)]">Session {sessionId}</span>
-            </div>
-
-            <RoleSelector
-              currentRole={currentRole}
-              roleStates={effectiveRoleStates}
-              onSelectRole={onRoleChange}
-            />
+          <div className="app-identity">
+            <span className="app-name">LLM Creative</span>
+            <span className="app-session">Session {sessionId}</span>
           </div>
-
-          <div className="flex-1 flex justify-center">
-            <div className="mode-toggle">
-              {(['focus', 'inspect', 'batch'] as LayoutMode[]).map((item) => (
-                <button
-                  key={item}
-                  type="button"
-                  className={`mode-toggle__button ${mode === item ? 'mode-toggle__button--active' : ''}`}
-                  onClick={() => setMode(item)}
-                >
-                  {item}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3 min-w-[260px] justify-end">
-            <button
-              type="button"
-              className="shortcut-pill shortcut-pill--interactive"
-              onClick={() => setPaletteOpen(true)}
-              title="Command palette (⌘K)"
-            >
-              <Command className="w-3.5 h-3.5" />
-              <span>⌘K</span>
-            </button>
-            <div className="shortcut-pill" title="Focus next panel (TAB)">
-              TAB
-            </div>
-            {headerActions}
+          <div className="app-status">
             <StatusPill
               status={agentStatus}
               agentName={activeAgent?.name}
@@ -607,11 +544,88 @@ export function TerminalLayout({
               onSelectModel={handleModelChange}
             />
           </div>
-        </header>
+        </div>
 
-        <div className="flex-1 min-h-0 flex flex-col lg:flex-row gap-2 px-2 pb-2 pt-3 lg:gap-3 lg:px-3">
-          <section className="flex-1 min-w-0 flex flex-col gap-2 lg:gap-3">
-            <div className="terminal-panel flex-1 min-h-0">
+        <div className="app-toolbar">
+          <div className="toolbar-left">
+            <button
+              onClick={() => setTimelineVisible(!timelineVisible)}
+              className="toolbar-icon"
+              title="Toggle timeline (⌘B)"
+            >
+              {timelineVisible ? (
+                <PanelLeftClose className="w-4 h-4" />
+              ) : (
+                <PanelLeft className="w-4 h-4" />
+              )}
+            </button>
+            <RoleSelector
+              currentRole={currentRole}
+              roleStates={effectiveRoleStates}
+              onSelectRole={onRoleChange}
+            />
+          </div>
+
+          <div className="toolbar-center">
+            <div className="mode-toggle">
+              {(['focus', 'inspect', 'batch'] as LayoutMode[]).map((item) => (
+                <button
+                  key={item}
+                  type="button"
+                  className={`mode-toggle__button ${mode === item ? 'mode-toggle__button--active' : ''}`}
+                  onClick={() => setMode(item)}
+                  aria-pressed={mode === item}
+                >
+                  --{item}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="toolbar-right">
+            <button
+              type="button"
+              className="shortcut-pill shortcut-pill--interactive"
+              onClick={() => setPaletteOpen(true)}
+              title="Command palette (⌘K)"
+            >
+              <Command className="w-3.5 h-3.5" />
+              <span>⌘K</span>
+            </button>
+            <div className="shortcut-pill" title="Focus next panel (TAB)">
+              TAB
+            </div>
+            {headerActions}
+          </div>
+        </div>
+      </header>
+
+      <div className="app-workspace">
+        {showLeftRail && (
+          <aside className="sidebar sidebar--left">
+            <SessionTimeline
+              currentRole={currentRole}
+              roleStates={effectiveRoleStates}
+              onSelectRole={onRoleChange}
+            />
+            <div
+              ref={planPanelRef}
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === 'Tab') {
+                  e.preventDefault();
+                  handleFocusCycle('plan', e.shiftKey ? 'prev' : 'next');
+                }
+              }}
+            >
+              <ExecutionPlan tasks={executionTasks} onSelectTask={handlePlanSelect} />
+            </div>
+          </aside>
+        )}
+
+        <div className="workspace-content">
+          <section className="workspace-primary">
+            <div className="terminal-panel terminal-panel--output flex-1 min-h-0">
               <div className="terminal-panel__header">
                 <div className="terminal-panel__title-group">
                   <span className="terminal-panel__title">RUN OUTPUT</span>
@@ -672,11 +686,12 @@ export function TerminalLayout({
               disabled={agentStatus === 'running' || agentStatus === 'thinking'}
               onFocusCycle={(direction) => handleFocusCycle('input', direction)}
               inputRef={inputRef}
+              promptLabel={`${roleHandles[currentRole]}@llm-creative:~$`}
             />
           </section>
 
           {showRightPanel && (
-            <aside className="w-full lg:w-[360px] xl:w-[420px] flex flex-col gap-3">
+            <aside className="sidebar sidebar--right">
               {mode === 'inspect' ? (
                 <div className="terminal-panel flex-1 min-h-0">
                   <div className="terminal-panel__header">
@@ -885,6 +900,26 @@ export function TerminalLayout({
           )}
         </div>
       </div>
+
+      <footer className="status-bar" role="status" aria-live="polite">
+        <div className="status-bar__left">
+          <span className="status-item">Mode: --{mode}</span>
+          <span className="status-item">Role: {roleNames[currentRole]}</span>
+        </div>
+        <div className="status-bar__center">
+          <span className="status-item">⌘K palette</span>
+          <span className="status-sep">•</span>
+          <span className="status-item">TAB focus</span>
+          <span className="status-sep">•</span>
+          <span className="status-item">↑↓ history</span>
+        </div>
+        <div className="status-bar__right">
+          <span className="status-item">Model: {modelName}</span>
+          {tokenCounts && (
+            <span className="status-item">Tokens: {tokenCounts.total}</span>
+          )}
+        </div>
+      </footer>
 
       {/* Command Palette */}
       <CommandPalette
