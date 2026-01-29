@@ -12,7 +12,9 @@ import { TokenCounter } from "./TokenCounter";
 import { StatusPill } from "./StatusPill";
 import { RoleSelector, RoleId, RoleState } from './RoleSelector';
 import { SessionTimeline } from './SessionTimeline';
-import { Command, PanelLeftClose, PanelLeft, ExternalLink } from 'lucide-react';
+import { Command, PanelLeftClose, PanelLeft, ExternalLink, Search, X, ChevronUp, ChevronDown, HelpCircle, Check } from 'lucide-react';
+
+type OutputAction = { kind: 'permission'; requestId: string; command: string };
 
 export interface OutputItem {
   id: string;
@@ -23,6 +25,7 @@ export interface OutputItem {
   duration?: number;
   timestamp: string;
   agentRole?: RoleId;
+  action?: OutputAction;
 }
 
 type LayoutMode = 'focus' | 'inspect' | 'batch';
@@ -58,6 +61,8 @@ interface TerminalLayoutProps {
   onSelectSession?: (id: string) => void;
   onClear?: () => void;
   onOpenSettings?: () => void;
+  onGrantPermission?: (requestId: string) => void;
+  onDenyPermission?: (requestId: string) => void;
   showTimeline?: boolean;
   sessions?: Array<{
     id: string;
@@ -174,6 +179,8 @@ export function TerminalLayout({
   onSelectSession,
   onClear,
   onOpenSettings,
+  onGrantPermission,
+  onDenyPermission,
   showTimeline = true,
   sessions = [],
   agents = [],
@@ -183,11 +190,23 @@ export function TerminalLayout({
 }: TerminalLayoutProps) {
   const [inputMode, setInputMode] = useState<InputMode>('agent');
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [paletteInitialView, setPaletteInitialView] = useState<'main' | 'sessions' | 'agents' | 'history'>('main');
+  const [crtEnabled, setCrtEnabled] = useState(true);
+  const [focusExpanded, setFocusExpanded] = useState(false);
+  const [artifactsOpen, setArtifactsOpen] = useState(false);
+  const [artifactFilter, setArtifactFilter] = useState<'all' | 'patch' | 'snippet'>('all');
+  const [artifactPreviewItem, setArtifactPreviewItem] = useState<InspectorItem | null>(null);
+  const previewTimerRef = useRef<number | null>(null);
   const [timelineVisible, setTimelineVisible] = useState(showTimeline);
   const [mode, setMode] = useState<LayoutMode>('focus');
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>('inspector');
   const [selectedInspectorId, setSelectedInspectorId] = useState<string | null>(null);
   const [diffOpen, setDiffOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [roleTransition, setRoleTransition] = useState<{ from: RoleId; to: RoleId; accent: string } | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchIndex, setSearchIndex] = useState(0);
   const [autoScroll, setAutoScroll] = useState(true);
   const [recentItems, setRecentItems] = useState<Array<{
     id: string;
@@ -199,6 +218,8 @@ export function TerminalLayout({
   const mainRef = useRef<HTMLDivElement>(null);
   const planPanelRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const prevRoleRef = useRef<RoleId>(currentRole);
 
   // Default role states if not provided
   const effectiveRoleStates: Record<RoleId, RoleState> = roleStates || {
@@ -232,7 +253,7 @@ export function TerminalLayout({
       content: value,
       timestamp,
     };
-    setRecentItems(prev => [newRecent, ...prev].slice(0, 20));
+    setRecentItems(prev => [newRecent, ...prev].slice(0, 50));
 
     // Re-enable auto-scroll when user submits
     setAutoScroll(true);
@@ -267,10 +288,38 @@ export function TerminalLayout({
   // Global keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === '?' || (e.shiftKey && e.key === '/')) {
+        e.preventDefault();
+        setShortcutsOpen(prev => !prev);
+      }
+
       // Cmd+K for palette
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
+        setPaletteInitialView('main');
         setPaletteOpen(prev => !prev);
+      }
+      // Cmd/Ctrl+Y for history
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'y') {
+        e.preventDefault();
+        setPaletteInitialView('history');
+        setPaletteOpen(true);
+      }
+      // Cmd/Ctrl+F for search
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'f') {
+        e.preventDefault();
+        setSearchOpen(true);
+        requestAnimationFrame(() => searchInputRef.current?.focus());
+      }
+      if ((e.metaKey || e.ctrlKey) && e.altKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+        e.preventDefault();
+        const roleOrder: RoleId[] = ['PLAN', 'BUILD', 'REVIEW', 'DEPLOY'];
+        const currentIndex = roleOrder.indexOf(currentRole);
+        if (currentIndex !== -1) {
+          const delta = e.key === 'ArrowRight' ? 1 : -1;
+          const nextIndex = (currentIndex + delta + roleOrder.length) % roleOrder.length;
+          onRoleChange(roleOrder[nextIndex]);
+        }
       }
       if ((e.metaKey || e.ctrlKey) && ['1', '2', '3', '4'].includes(e.key)) {
         e.preventDefault();
@@ -306,7 +355,19 @@ export function TerminalLayout({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onClear, onNewSession]);
+  }, [currentRole, onClear, onNewSession, onRoleChange]);
+
+  useEffect(() => {
+    if (!shortcutsOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setShortcutsOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [shortcutsOpen]);
 
   // Auto-scroll to bottom when:
   // 1. New outputs appear
@@ -322,10 +383,10 @@ export function TerminalLayout({
   const getAgentClass = (role?: RoleId) => {
     if (!role) return '';
     const classes: Record<RoleId, string> = {
-      PLAN: 'output-block--agent-architect',
-      BUILD: 'output-block--agent-engineer',
-      REVIEW: 'output-block--agent-critic',
-      DEPLOY: 'output-block--agent-deployer',
+      PLAN: 'output-item--agent output-item--agent-architect',
+      BUILD: 'output-item--agent output-item--agent-engineer',
+      REVIEW: 'output-item--agent output-item--agent-critic',
+      DEPLOY: 'output-item--agent output-item--agent-deployer',
     };
     return classes[role] || '';
   };
@@ -389,6 +450,31 @@ export function TerminalLayout({
     return items;
   }, [outputs]);
 
+  const artifactCounts = useMemo(() => {
+    const counts = { all: 0, patch: 0, snippet: 0 };
+    inspectorItems.forEach((item) => {
+      if (item.kind === 'patch') counts.patch += 1;
+      if (item.kind === 'snippet') counts.snippet += 1;
+      counts.all += 1;
+    });
+    return counts;
+  }, [inspectorItems]);
+
+  const filteredArtifacts = useMemo(() => {
+    const items = inspectorItems.filter((item) => item.kind === 'patch' || item.kind === 'snippet');
+    if (artifactFilter === 'all') return items;
+    return items.filter((item) => item.kind === artifactFilter);
+  }, [artifactFilter, inspectorItems]);
+
+  const artifactRoleCounts = useMemo(() => {
+    const counts: Partial<Record<RoleId, number>> = {};
+    inspectorItems.forEach((item) => {
+      if (!item.role) return;
+      counts[item.role] = (counts[item.role] ?? 0) + 1;
+    });
+    return counts;
+  }, [inspectorItems]);
+
   useEffect(() => {
     if (inspectorItems.length === 0) {
       setSelectedInspectorId(null);
@@ -406,8 +492,27 @@ export function TerminalLayout({
   const showRightPanel = mode !== 'focus';
   const showLeftRail = mode !== 'focus' && timelineVisible;
   const activeAgent = agents.find((agent) => agent.id === currentRole);
-  const visibleOutputs = outputs.slice(-6);
+  const visibleOutputs = useMemo(() => {
+    if (searchOpen) return outputs;
+    if (mode === 'focus' && !focusExpanded) return outputs.slice(-2);
+    return outputs.slice(-6);
+  }, [outputs, searchOpen, mode, focusExpanded]);
+  const normalizedSearch = searchQuery.trim().toLowerCase();
+  const searchResults = useMemo(() => {
+    if (!normalizedSearch) return [];
+    return visibleOutputs
+      .filter((output) => {
+        const haystack = `${output.command}
+${output.content || ''}`.toLowerCase();
+        return haystack.includes(normalizedSearch);
+      })
+      .map((output) => output.id);
+  }, [visibleOutputs, normalizedSearch]);
+  const searchResultSet = useMemo(() => new Set(searchResults), [searchResults]);
+  const activeSearchId = searchResults[searchIndex] ?? null;
+  const searchCountLabel = searchResults.length ? `${searchIndex + 1}/${searchResults.length}` : '0';
 
+  const artifactItems = filteredArtifacts;
   const focusTargets = useMemo(() => {
     const targets: Array<FocusKey> = ['output', 'input'];
     if (showLeftRail) {
@@ -439,18 +544,95 @@ export function TerminalLayout({
     focusByKey(order[nextIndex]);
   }, [focusByKey, focusTargets]);
 
+  const scrollToSearchResult = useCallback((index: number) => {
+    const id = searchResults[index];
+    if (!id) return;
+    setAutoScroll(false);
+    const target = document.querySelector(`[data-block-id="${id}"]`);
+    if (target instanceof HTMLElement) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [searchResults]);
+
+  const handleSearchNavigate = useCallback((direction: 'next' | 'prev') => {
+    if (searchResults.length === 0) return;
+    const nextIndex = direction === 'next'
+      ? (searchIndex + 1) % searchResults.length
+      : (searchIndex - 1 + searchResults.length) % searchResults.length;
+    setSearchIndex(nextIndex);
+    scrollToSearchResult(nextIndex);
+  }, [searchIndex, searchResults, scrollToSearchResult]);
+
+  const getOutputIdFromInspector = useCallback((itemId: string) => {
+    if (!itemId) return null;
+    const patchIndex = itemId.indexOf('-patch-');
+    if (patchIndex > 0) return itemId.slice(0, patchIndex);
+    const codeIndex = itemId.indexOf('-code-');
+    if (codeIndex > 0) return itemId.slice(0, codeIndex);
+    return itemId;
+  }, []);
+
+  const getPreviewText = useCallback((value: string) => {
+    if (!value) return '';
+    const lines = value.split('\n');
+    const preview = lines.slice(0, 2).join('\n');
+    return preview.length < value.length ? `${preview}\n…` : preview;
+  }, []);
+
+  const scrollToOutputId = useCallback((outputId: string | null) => {
+    if (!outputId) return;
+    setAutoScroll(false);
+    const target = document.querySelector(`[data-block-id="${outputId}"]`);
+    if (target instanceof HTMLElement) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, []);
+
+  useEffect(() => {
+    if (searchOpen) {
+      setAutoScroll(false);
+      requestAnimationFrame(() => searchInputRef.current?.focus());
+    }
+  }, [searchOpen]);
+
+  useEffect(() => {
+    if (!searchResults.length) {
+      setSearchIndex(0);
+      return;
+    }
+    setSearchIndex((prev) => Math.min(prev, searchResults.length - 1));
+  }, [searchResults.length]);
+
+  useEffect(() => {
+    if (searchOpen && searchResults.length > 0) {
+      scrollToSearchResult(searchIndex);
+    }
+  }, [searchOpen, searchResults.length, searchIndex, scrollToSearchResult]);
+
+  useEffect(() => {
+    if (searchQuery.trim()) {
+      setSearchIndex(0);
+    }
+  }, [searchQuery]);
+
   const batchResults = outputs.slice(-4).map((output) => ({
     id: output.id,
     label: output.command,
     status: output.status,
   }));
 
-  const roleNames: Record<RoleId, string> = {
+  const roleNames = useMemo<Record<RoleId, string>>(() => ({
     PLAN: 'Architect',
     BUILD: 'Engineer',
     REVIEW: 'Critic',
     DEPLOY: 'Deployer',
-  };
+  }), []);
+  const roleAccents = useMemo<Record<RoleId, string>>(() => ({
+    PLAN: 'var(--agent-architect)',
+    BUILD: 'var(--agent-engineer)',
+    REVIEW: 'var(--agent-critic)',
+    DEPLOY: 'var(--agent-deployer)',
+  }), []);
   const roleHandles: Record<RoleId, string> = {
     PLAN: 'architect',
     BUILD: 'engineer',
@@ -458,11 +640,74 @@ export function TerminalLayout({
     DEPLOY: 'deployer',
   };
 
+  const rolePlaceholders: Record<RoleId, string> = {
+    PLAN: 'Describe your project architecture...',
+    BUILD: 'Request implementation or code changes...',
+    REVIEW: 'Ask for review or improvements...',
+    DEPLOY: 'Configure deployment...',
+  };
+
+  const commandPlaceholder = inputMode === 'agent'
+    ? rolePlaceholders[currentRole]
+    : 'Enter command...';
+
+  const breadcrumbCommand = lastOutput?.command ? lastOutput.command : 'Ready';
+
   const roleOrder: RoleId[] = ['PLAN', 'BUILD', 'REVIEW', 'DEPLOY'];
   const currentRoleIndex = roleOrder.indexOf(currentRole);
   const nextRole = currentRoleIndex >= 0 && currentRoleIndex < roleOrder.length - 1
     ? roleOrder[currentRoleIndex + 1]
     : roleOrder[0];
+  const roleShortcutLabel = roleOrder.map((role) => roleNames[role]).join(' / ');
+
+  const shortcutSections = [
+    {
+      title: 'Global',
+      items: [
+        { keys: ['Shift', '/'], label: 'Shortcut help' },
+        { keys: ['⌘/Ctrl', 'K'], label: 'Command palette' },
+        { keys: ['⌘/Ctrl', 'Y'], label: 'Command history' },
+        { keys: ['⌘/Ctrl', 'F'], label: 'Search output' },
+        { keys: ['⌘/Ctrl', 'B'], label: 'Toggle timeline' },
+        { keys: ['⌥/Alt', 'I'], label: 'Toggle Focus/Inspect mode' },
+        { keys: ['⌘/Ctrl', '⌥/Alt', '←/→'], label: 'Cycle roles' },
+        { keys: ['⌘/Ctrl', '1-4'], label: `Switch roles (${roleShortcutLabel})` },
+        { keys: ['⌘/Ctrl', 'N'], label: 'New session' },
+        { keys: ['⌘/Ctrl', 'L'], label: 'Clear output' },
+      ],
+    },
+    {
+      title: 'Editor',
+      items: [
+        { keys: ['Enter'], label: 'Run command' },
+        { keys: ['Shift', 'Enter'], label: 'New line' },
+        { keys: ['⌘/Ctrl', 'Shift', 'A'], label: 'Toggle Agent/Shell input' },
+        { keys: ['↑', '↓'], label: 'Command history' },
+        { keys: ['Tab'], label: 'Focus next panel', note: 'Shift+Tab goes back' },
+        { keys: ['Esc'], label: 'Clear input / close panels' },
+      ],
+    },
+  ];
+
+  useEffect(() => {
+    if (prevRoleRef.current === currentRole) return;
+    const from = prevRoleRef.current;
+    const to = currentRole;
+    prevRoleRef.current = currentRole;
+    const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    setRecentItems(prev => [
+      {
+        id: `${Date.now()}-${to}`,
+        type: 'nav' as const,
+        content: `Switch → ${roleNames[to]}`,
+        timestamp,
+      },
+      ...prev,
+    ].slice(0, 50));
+    setRoleTransition({ from, to, accent: roleAccents[to] });
+    const timer = window.setTimeout(() => setRoleTransition(null), 650);
+    return () => window.clearTimeout(timer);
+  }, [currentRole, roleAccents, roleNames]);
 
   const handleOpenInspector = useCallback(() => {
     setMode('inspect');
@@ -512,7 +757,21 @@ export function TerminalLayout({
   }, [outputs]);
 
   return (
-    <div className="app-shell">
+    <div
+      className={`app-shell ${crtEnabled ? 'app-shell--crt' : ''}`}
+      data-role={currentRole.toLowerCase()}
+      style={{ '--role-accent': roleAccents[currentRole] } as React.CSSProperties}
+    >
+      {roleTransition && (
+        <div
+          className="role-transition"
+          style={{ '--role-accent': roleTransition.accent } as React.CSSProperties}
+        >
+          <div className="role-transition__label">
+            {roleNames[roleTransition.from]} → {roleNames[roleTransition.to]}
+          </div>
+        </div>
+      )}
       <header className="app-chrome">
         <div className="app-titlebar">
           <div className="window-controls" aria-hidden="true">
@@ -524,26 +783,7 @@ export function TerminalLayout({
             <span className="app-name">LLM Creative</span>
             <span className="app-session">Session {sessionId}</span>
           </div>
-          <div className="app-status">
-            <StatusPill
-              status={agentStatus}
-              agentName={activeAgent?.name}
-              modelName={modelName}
-              sessionId={sessionId}
-            />
-            {tokenCounts && (
-              <TokenCounter
-                inputTokens={tokenCounts.input}
-                outputTokens={tokenCounts.output}
-                totalTokens={tokenCounts.total}
-              />
-            )}
-            <ModelSelector
-              currentModel={modelName}
-              status={modelStatus}
-              onSelectModel={handleModelChange}
-            />
-          </div>
+          <div className="app-status" />
         </div>
 
         <div className="app-toolbar">
@@ -582,23 +822,12 @@ export function TerminalLayout({
             </div>
           </div>
 
-          <div className="toolbar-right">
-            <button
-              type="button"
-              className="shortcut-pill shortcut-pill--interactive"
-              onClick={() => setPaletteOpen(true)}
-              title="Command palette (⌘K)"
-            >
-              <Command className="w-3.5 h-3.5" />
-              <span>⌘K</span>
-            </button>
-            <div className="shortcut-pill" title="Focus next panel (TAB)">
-              TAB
-            </div>
-            {headerActions}
-          </div>
+          <div className="toolbar-right" />
         </div>
+        
       </header>
+
+      
 
       <div className="app-workspace">
         {showLeftRail && (
@@ -626,17 +855,217 @@ export function TerminalLayout({
         <div className="workspace-content">
           <section className="workspace-primary">
             <div className="terminal-panel terminal-panel--output flex-1 min-h-0">
-              <div className="terminal-panel__header">
-                <div className="terminal-panel__title-group">
-                  <span className="terminal-panel__title">RUN OUTPUT</span>
-                  <span className="terminal-panel__subtitle">Artifact container</span>
+              <div className="terminal-panel__header terminal-panel__header--compact">
+                <div className="terminal-panel__header-actions">
+                  <span className="panel-chip">Artifact container</span>
+                  <span className="terminal-panel__meta">Truth: runtime</span>
+                  {mode === 'focus' && outputs.length > 2 && (
+                    <button
+                      type="button"
+                      className="output-focus-toggle"
+                      onClick={() => setFocusExpanded((prev) => !prev)}
+                    >
+                      {focusExpanded ? 'Show recent' : `Show all (${outputs.length})`}
+                    </button>
+                  )}
+                  {artifactCounts.all > 0 && (
+                    <div className="artifacts-rail">
+                      <button
+                        type="button"
+                        className="artifacts-rail__toggle"
+                        onClick={() => setArtifactsOpen((prev) => !prev)}
+                      >
+                        Artifacts {artifactCounts.all}
+                      </button>
+                      <span className="artifacts-rail__summary">
+                        {artifactCounts.patch} patch{artifactCounts.patch === 1 ? '' : 'es'} • {artifactCounts.snippet} snippet{artifactCounts.snippet === 1 ? '' : 's'}
+                      </span>
+                      {artifactsOpen && (
+                        <div className="artifacts-rail__panel">
+                          <div className="artifacts-rail__filters">
+                            {(['all', 'patch', 'snippet'] as const).map((filter) => (
+                              <button
+                                key={filter}
+                                type="button"
+                                className={`artifacts-rail__filter ${artifactFilter === filter ? 'artifacts-rail__filter--active' : ''}`}
+                                onClick={() => setArtifactFilter(filter)}
+                              >
+                                {filter === 'all' ? 'All' : filter === 'patch' ? 'Patches' : 'Snippets'}
+                              </button>
+                            ))}
+                          </div>
+                          {Object.keys(artifactRoleCounts).length > 0 && (
+                            <div className="artifacts-rail__roles">
+                              {Object.entries(artifactRoleCounts).map(([role, count]) => (
+                                <span
+                                  key={role}
+                                  className={`artifacts-rail__role artifacts-rail__role--${role.toLowerCase()}`}
+                                >
+                                  {roleNames[role as RoleId]} {count}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                          <div className="artifacts-rail__list">
+                            {artifactItems.length === 0 && (
+                              <div className="artifacts-rail__empty">No artifacts match this filter.</div>
+                            )}
+                            {artifactItems.map((item) => (
+                              <button
+                                key={item.id}
+                                type="button"
+                                className="artifacts-rail__item"
+                                onMouseEnter={() => {
+                                  if (previewTimerRef.current) {
+                                    window.clearTimeout(previewTimerRef.current);
+                                  }
+                                  previewTimerRef.current = window.setTimeout(() => {
+                                    setArtifactPreviewItem(item);
+                                  }, 180);
+                                }}
+                                onMouseLeave={() => {
+                                  if (previewTimerRef.current) {
+                                    window.clearTimeout(previewTimerRef.current);
+                                  }
+                                  setArtifactPreviewItem(null);
+                                }}
+                                onClick={() => {
+                                  setSelectedInspectorId(item.id);
+                                  setArtifactsOpen(false);
+                                  scrollToOutputId(getOutputIdFromInspector(item.id));
+                                }}
+                              >
+                                <span className="artifacts-rail__label">{item.label}</span>
+                                <span className="artifacts-rail__meta">
+                                  <span className="artifacts-rail__kind">{item.kind}</span>
+                                  {item.role && (
+                                    <span className={`artifacts-rail__role artifacts-rail__role--${item.role.toLowerCase()}`}>
+                                      {roleNames[item.role]}
+                                    </span>
+                                  )}
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {artifactPreviewItem && (
+                        <div className="artifacts-rail__preview">
+                          <div className="artifacts-rail__preview-title">
+                            {artifactPreviewItem.label}
+                          </div>
+                          <div className="artifacts-rail__preview-meta">
+                            <span>{artifactPreviewItem.kind}</span>
+                            {artifactPreviewItem.role && <span>• {roleNames[artifactPreviewItem.role]}</span>}
+                            {artifactPreviewItem.status && <span>• {artifactPreviewItem.status}</span>}
+                          </div>
+                          {artifactPreviewItem.kind === 'snippet' ? (
+                            <SyntaxHighlighter
+                              language={artifactPreviewItem.language || 'text'}
+                              style={vscDarkPlus}
+                              customStyle={{
+                                margin: 0,
+                                background: 'transparent',
+                                padding: '8px 10px',
+                                fontSize: '11px',
+                                lineHeight: '1.4',
+                              }}
+                              codeTagProps={{
+                                style: { fontFamily: 'var(--font-terminal), var(--font-geist-mono), monospace' },
+                              }}
+                            >
+                              {getPreviewText(artifactPreviewItem.content)}
+                            </SyntaxHighlighter>
+                          ) : (
+                            <pre className="artifacts-rail__preview-body">{getPreviewText(artifactPreviewItem.content)}</pre>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  <div className={`output-search ${searchOpen ? 'output-search--open' : ''}`}>
+                    {searchOpen ? (
+                      <div className="output-search__field" role="search">
+                        <Search className="w-3.5 h-3.5 text-[var(--accent-sky)]" />
+                        <input
+                          ref={searchInputRef}
+                          type="text"
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleSearchNavigate(e.shiftKey ? 'prev' : 'next');
+                            }
+                            if (e.key === 'ArrowDown') {
+                              e.preventDefault();
+                              handleSearchNavigate('next');
+                            }
+                            if (e.key === 'ArrowUp') {
+                              e.preventDefault();
+                              handleSearchNavigate('prev');
+                            }
+                            if (e.key === 'Escape') {
+                              e.preventDefault();
+                              setSearchOpen(false);
+                              setSearchQuery('');
+                            }
+                          }}
+                          placeholder="Search output..."
+                          aria-label="Search terminal output"
+                          className="output-search__input"
+                        />
+                        <span className="output-search__count">{searchCountLabel}</span>
+                        <button
+                          type="button"
+                          className="output-search__nav-btn"
+                          onClick={() => handleSearchNavigate('prev')}
+                          aria-label="Previous match"
+                        >
+                          <ChevronUp className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          className="output-search__nav-btn"
+                          onClick={() => handleSearchNavigate('next')}
+                          aria-label="Next match"
+                        >
+                          <ChevronDown className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          className="output-search__close"
+                          onClick={() => {
+                            setSearchOpen(false);
+                            setSearchQuery('');
+                          }}
+                          aria-label="Close search"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        className="output-search__toggle"
+                        onClick={() => {
+                          setSearchOpen(true);
+                          requestAnimationFrame(() => searchInputRef.current?.focus());
+                        }}
+                        aria-label="Open search"
+                      >
+                        <Search className="w-3.5 h-3.5" />
+                        <span>Find</span>
+                        <span className="output-search__kbd">⌘F</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
-                <span className="terminal-panel__meta">Truth: runtime</span>
               </div>
 
               <div
                 ref={mainRef}
-                className="terminal-panel__body space-y-3"
+                className="terminal-panel__body space-y-4"
                 tabIndex={0}
                 onKeyDown={(e) => {
                   if (e.key === 'Tab') {
@@ -657,25 +1086,66 @@ export function TerminalLayout({
                   </div>
                 )}
 
-                {visibleOutputs.map((output) => (
-                  <div key={output.id} className={getAgentClass(output.agentRole)}>
-                    <OutputBlock
-                      id={output.id}
-                      type={output.type}
-                      command={output.command}
-                      content={output.content}
-                      status={output.status}
-                      duration={output.duration}
-                      timestamp={output.timestamp}
-                      agentRole={output.agentRole}
-                      agentLabel={output.agentRole ? roleNames[output.agentRole] : undefined}
-                      onCopy={() => {}}
-                      onApply={output.type === 'agent' ? () => {} : undefined}
-                    />
-                  </div>
-                ))}
+                {visibleOutputs.map((output) => {
+                  const isMatch = searchResultSet.has(output.id);
+                  const isActive = activeSearchId === output.id;
+                  const searchClass = isActive ? 'output-block--search-active' : isMatch ? 'output-block--search-hit' : '';
 
-                <div ref={outputsEndRef} />
+                  const permissionRequestId = output.action?.kind === 'permission' ? output.action.requestId : null;
+
+                  return (
+                    <div
+                      key={output.id}
+                      data-output-id={output.id}
+                      className={['output-item', getAgentClass(output.agentRole), searchClass].filter(Boolean).join(' ')}
+                    >
+                      <OutputBlock
+                        id={output.id}
+                        type={output.type}
+                        command={output.command}
+                        content={output.content}
+                        status={output.status}
+                        duration={output.duration}
+                        timestamp={output.timestamp}
+                        agentRole={output.agentRole}
+                        agentLabel={output.agentRole ? roleNames[output.agentRole] : undefined}
+                        onCopy={() => {}}
+                        actions={
+                          permissionRequestId && onGrantPermission && onDenyPermission ? (
+                            <>
+                              <button
+                                type="button"
+                                className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-[var(--bg-base)] bg-[var(--accent-rose)] rounded hover:opacity-90"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  if (!permissionRequestId) return;
+                                  onDenyPermission(permissionRequestId);
+                                }}
+                              >
+                                Deny
+                              </button>
+                              <button
+                                type="button"
+                                className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-[var(--bg-base)] bg-[var(--accent-emerald)] rounded hover:opacity-90"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  if (!permissionRequestId) return;
+                                  onGrantPermission(permissionRequestId);
+                                }}
+                              >
+                                Approve
+                              </button>
+                            </>
+                          ) : undefined
+                        }
+                      />
+                    </div>
+                  );
+                })}
+
+                <span ref={outputsEndRef} className="output-end" />
               </div>
             </div>
 
@@ -687,6 +1157,7 @@ export function TerminalLayout({
               onFocusCycle={(direction) => handleFocusCycle('input', direction)}
               inputRef={inputRef}
               promptLabel={`${roleHandles[currentRole]}@llm-creative:~$`}
+              placeholder={commandPlaceholder}
             />
           </section>
 
@@ -902,21 +1373,79 @@ export function TerminalLayout({
       </div>
 
       <footer className="status-bar" role="status" aria-live="polite">
-        <div className="status-bar__left">
+        <div className="status-group">
           <span className="status-item">Mode: --{mode}</span>
+          <span className="status-sep">•</span>
           <span className="status-item">Role: {roleNames[currentRole]}</span>
         </div>
-        <div className="status-bar__center">
-          <span className="status-item">⌘K palette</span>
+        <span className="status-divider" aria-hidden="true" />
+        <div className="status-group status-group--center">
+          <StatusPill
+            status={agentStatus}
+            agentName={activeAgent?.name}
+            modelName={modelName}
+            sessionId={sessionId}
+          />
           <span className="status-sep">•</span>
-          <span className="status-item">TAB focus</span>
-          <span className="status-sep">•</span>
-          <span className="status-item">↑↓ history</span>
-        </div>
-        <div className="status-bar__right">
-          <span className="status-item">Model: {modelName}</span>
           {tokenCounts && (
-            <span className="status-item">Tokens: {tokenCounts.total}</span>
+            <TokenCounter
+              inputTokens={tokenCounts.input}
+              outputTokens={tokenCounts.output}
+              totalTokens={tokenCounts.total}
+            />
+          )}
+          <span className="status-sep">•</span>
+          <ModelSelector
+            currentModel={modelName}
+            status={modelStatus}
+            onSelectModel={handleModelChange}
+          />
+        </div>
+        <span className="status-divider" aria-hidden="true" />
+        <div className="status-group status-group--right">
+          <button
+            type="button"
+            className="status-action"
+            onClick={() => setShortcutsOpen(true)}
+            title="Keyboard shortcuts (?)"
+            aria-label="Keyboard shortcuts"
+            aria-haspopup="dialog"
+          >
+            <HelpCircle className="w-3.5 h-3.5" />
+            Help
+          </button>
+          <button
+            type="button"
+            className="status-action"
+            onClick={() => {
+              setPaletteInitialView('main');
+              setPaletteOpen(true);
+            }}
+            title="Command palette (⌘K)"
+          >
+            <Command className="w-3.5 h-3.5" />
+            ⌘K
+          </button>
+          <button
+            type="button"
+            className="status-action"
+            title="Focus next panel (TAB)"
+          >
+            TAB
+          </button>
+          <button
+            type="button"
+            className={`status-action ${crtEnabled ? 'status-action--active' : ''}`}
+            onClick={() => setCrtEnabled((prev) => !prev)}
+            aria-pressed={crtEnabled}
+            title="Toggle CRT effects"
+          >
+            CRT
+          </button>
+          {headerActions && (
+            <div className="status-toolbar">
+              {headerActions}
+            </div>
           )}
         </div>
       </footer>
@@ -924,6 +1453,7 @@ export function TerminalLayout({
       {/* Command Palette */}
       <CommandPalette
         isOpen={paletteOpen}
+        initialView={paletteInitialView}
         onClose={() => setPaletteOpen(false)}
         onExecuteShell={(cmd) => {
           setInputMode('shell');
@@ -950,6 +1480,53 @@ export function TerminalLayout({
         currentSessionId={sessionId}
         currentAgentId={currentRole}
       />
+
+      {shortcutsOpen && (
+        <div className="shortcut-modal-overlay" onClick={() => setShortcutsOpen(false)}>
+          <div
+            className="shortcut-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Keyboard shortcuts"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="shortcut-modal__header">
+              <div className="shortcut-modal__title-group">
+                <span className="shortcut-modal__title">Keyboard Shortcuts</span>
+                <span className="shortcut-modal__subtitle">Global + editor commands</span>
+              </div>
+              <button type="button" className="shortcut-modal__close" onClick={() => setShortcutsOpen(false)}>
+                Close
+              </button>
+            </div>
+            <div className="shortcut-modal__body">
+              {shortcutSections.map((section) => (
+                <div className="shortcut-modal__section" key={section.title}>
+                  <div className="shortcut-modal__section-title">{section.title}</div>
+                  <div className="shortcut-modal__list">
+                    {section.items.map((item) => (
+                      <div className="shortcut-modal__item" key={`${section.title}-${item.label}`}>
+                        <div className="shortcut-modal__item-label">
+                          <span>{item.label}</span>
+                          {item.note && <span className="shortcut-modal__item-note">{item.note}</span>}
+                        </div>
+                        <div className="shortcut-modal__keys">
+                          {item.keys.map((key, index) => (
+                            <React.Fragment key={`${item.label}-${key}-${index}`}>
+                              <kbd className="shortcut-kbd">{key}</kbd>
+                              {index < item.keys.length - 1 && <span className="shortcut-kbd__sep">+</span>}
+                            </React.Fragment>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {diffOpen && selectedInspectorItem && (
         <div className="diff-modal-overlay" onClick={() => setDiffOpen(false)}>

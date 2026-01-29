@@ -23,8 +23,6 @@ export function PhaseGateModal({
   onReject,
   isOpen,
 }: PhaseGateModalProps) {
-  if (!isOpen) return null;
-
   const roleLabels: Record<string, string> = {
     PLAN: 'Architect',
     BUILD: 'Engineer',
@@ -50,6 +48,8 @@ export function PhaseGateModal({
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
   }, [isOpen, onApprove, onReject]);
+
+  if (!isOpen) return null;
 
   return (
     <div className="phase-gate-overlay">
