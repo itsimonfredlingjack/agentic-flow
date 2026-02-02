@@ -18,6 +18,8 @@ const ROLES: Role[] = [
   { id: 'DEPLOY', label: 'Deployer', cssClass: 'deployer' },
 ];
 
+const STATUS_TOOLTIP = '✓ = Completed | * = Active | ⚙ = Has artifacts | × = Not started';
+
 interface RoleSelectorProps {
   currentRole: RoleId;
   roleStates?: Record<RoleId, RoleState>;
@@ -86,8 +88,16 @@ export function RoleSelector({
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.defaultPrevented) return;
       // Don't trigger if typing in an input
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+
+      if ((e.metaKey || e.ctrlKey) && e.altKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+        e.preventDefault();
+        const nextRole = e.key === 'ArrowRight' ? getNextRole() : getPrevRole();
+        if (nextRole) handleRoleClick(nextRole);
         return;
       }
 
@@ -120,7 +130,13 @@ export function RoleSelector({
         const state = getState(role.id);
         const isEntering = enteringRole === role.id;
         const isExiting = exitingRole === role.id;
-        const statusSymbol = state === 'completed' ? '✓' : state === 'active' ? '⚙' : state === 'locked' ? '×' : '';
+        const statusSymbol = state === 'completed'
+          ? '✓'
+          : state === 'active'
+            ? '⚙'
+            : state === 'available' || state === 'locked'
+              ? '×'
+              : '';
         const activeMark = state === 'active' ? '*' : '';
         const tabLabel = `[${index + 1}:${role.label}${activeMark}${statusSymbol}]`;
 
@@ -154,16 +170,15 @@ export function RoleSelector({
               transition-all duration-150
               ${stateClasses[state]}
             `}
-            title={`${role.label} (⌘${index + 1})`}
           >
-            <span className="role-tab__label">{tabLabel}</span>
+            <span className="role-tab__label" title={STATUS_TOOLTIP}>{tabLabel}</span>
           </button>
         );
       })}
 
       {/* TAB hint */}
       {showHint && (
-        <div className="ml-2 flex items-center gap-1 text-[var(--text-tertiary)]">
+        <div className="role-tabs-terminal__hint ml-2 flex items-center gap-1 text-[var(--text-tertiary)]">
           <kbd className="px-1 py-0.5 text-[10px] font-mono bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded">
             TAB
           </kbd>

@@ -4,6 +4,8 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 
 export type InputMode = 'shell' | 'agent';
 
+const HISTORY_STORAGE_KEY = 'llm-creative-command-history-v1';
+
 interface CommandInputProps {
   mode: InputMode;
   onModeToggle: () => void;
@@ -31,6 +33,29 @@ export function CommandInput({
   const localRef = useRef<HTMLTextAreaElement>(null);
   const resolvedRef = inputRef ?? localRef;
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const stored = window.localStorage.getItem(HISTORY_STORAGE_KEY);
+      if (!stored) return;
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed)) {
+        setHistory(parsed.filter((item) => typeof item === 'string'));
+      }
+    } catch (err) {
+      console.warn('Failed to load command history', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      window.localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(history.slice(0, 50)));
+    } catch (err) {
+      console.warn('Failed to persist command history', err);
+    }
+  }, [history]);
+
   const defaultPlaceholder = mode === 'shell' 
     ? 'Enter command...' 
     : 'Ask the agent...';
@@ -40,7 +65,10 @@ export function CommandInput({
     if (!trimmed || disabled) return;
 
     onSubmit(trimmed, mode);
-    setHistory(prev => [trimmed, ...prev].slice(0, 50));
+    setHistory(prev => {
+      const next = prev[0] === trimmed ? prev : [trimmed, ...prev];
+      return next.slice(0, 50);
+    });
     setValue('');
     setHistoryIndex(-1);
   }, [value, mode, disabled, onSubmit]);
@@ -113,7 +141,7 @@ export function CommandInput({
     if (!element) return;
     element.style.height = '0px';
     const nextHeight = Math.min(element.scrollHeight, 160);
-    element.style.height = `${Math.max(nextHeight, 48)}px`;
+    element.style.height = `${Math.max(nextHeight, 40)}px`;
   }, [value, resolvedRef]);
 
   const promptClass = mode === 'shell'
@@ -126,13 +154,13 @@ export function CommandInput({
       <div
         className="terminal-input__bar flex items-start gap-3 focus-within:border-[var(--primary-accent)] transition-colors"
         style={{
-          minHeight: '52px',
-          padding: '10px 16px',
+          minHeight: '44px',
+          padding: '8px 12px',
         }}
       >
         {/* Mode indicator */}
         <span
-          className={`font-mono font-bold ${promptClass}`}
+          className={`terminal-input__prompt font-mono font-bold ${promptClass}`}
           style={{ fontSize: '15px' }}
         >
           {promptText}
@@ -143,7 +171,7 @@ export function CommandInput({
         <textarea
           ref={resolvedRef}
           rows={1}
-          className="flex-1 bg-transparent text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] outline-none resize-none"
+          className="flex-1 min-w-0 bg-transparent text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] outline-none resize-none"
           aria-label="Terminal input"
           style={{
             fontSize: '14px',
@@ -164,7 +192,7 @@ export function CommandInput({
         />
 
         {/* Mode toggle hint */}
-        <div className="flex items-center gap-1.5 text-[var(--text-tertiary)]" style={{ fontSize: '11px' }}>
+        <div className="terminal-input__hint flex items-center gap-1.5 text-[var(--text-tertiary)]" style={{ fontSize: '11px' }}>
           <kbd className="px-1.5 py-0.5 bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded font-mono" style={{ fontSize: '10px' }}>
             ⌘⇧A
           </kbd>

@@ -822,7 +822,9 @@ ${output.content || ''}`.toLowerCase();
             </div>
           </div>
 
-          <div className="toolbar-right" />
+          <div className="toolbar-right">
+            {headerActions}
+          </div>
         </div>
         
       </header>
@@ -1388,13 +1390,15 @@ ${output.content || ''}`.toLowerCase();
           />
           <span className="status-sep">•</span>
           {tokenCounts && (
-            <TokenCounter
-              inputTokens={tokenCounts.input}
-              outputTokens={tokenCounts.output}
-              totalTokens={tokenCounts.total}
-            />
+            <>
+              <TokenCounter
+                inputTokens={tokenCounts.input}
+                outputTokens={tokenCounts.output}
+                totalTokens={tokenCounts.total}
+              />
+              <span className="status-sep">•</span>
+            </>
           )}
-          <span className="status-sep">•</span>
           <ModelSelector
             currentModel={modelName}
             status={modelStatus}
@@ -1428,25 +1432,20 @@ ${output.content || ''}`.toLowerCase();
           </button>
           <button
             type="button"
-            className="status-action"
+            className="status-action status-action--hide-sm"
             title="Focus next panel (TAB)"
           >
             TAB
           </button>
           <button
             type="button"
-            className={`status-action ${crtEnabled ? 'status-action--active' : ''}`}
+            className={`status-action status-action--hide-sm ${crtEnabled ? 'status-action--active' : ''}`}
             onClick={() => setCrtEnabled((prev) => !prev)}
             aria-pressed={crtEnabled}
             title="Toggle CRT effects"
           >
             CRT
           </button>
-          {headerActions && (
-            <div className="status-toolbar">
-              {headerActions}
-            </div>
-          )}
         </div>
       </footer>
 
