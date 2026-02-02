@@ -48,6 +48,7 @@ export function StatusPill({
 
   const config = STATUS_CONFIG[status];
   const isActive = status === 'thinking' || status === 'running';
+  const isReady = status === 'ready';
 
   const handleClick = () => {
     if (onClick) {
@@ -65,11 +66,11 @@ export function StatusPill({
         role="button"
         tabIndex={0}
         onKeyDown={(e) => e.key === 'Enter' && handleClick()}
-        animate={isActive ? {
-          scale: [1, 1.03, 1],
+        animate={isActive || isReady ? {
+          scale: [1, isActive ? 1.03 : 1.02, 1],
         } : { scale: 1 }}
-        transition={isActive ? {
-          duration: 1.5,
+        transition={isActive || isReady ? {
+          duration: isActive ? 1.5 : 2.4,
           repeat: Infinity,
           ease: 'easeInOut'
         } : snapSpring}
@@ -79,12 +80,12 @@ export function StatusPill({
         <motion.span
           className="status-pill__dot"
           style={{ backgroundColor: config.color }}
-          animate={isActive ? {
-            scale: [1, 1.3, 1],
-            opacity: [1, 0.7, 1],
+          animate={isActive || isReady ? {
+            scale: [1, isActive ? 1.3 : 1.15, 1],
+            opacity: [1, isActive ? 0.7 : 0.85, 1],
           } : { scale: 1, opacity: 1 }}
-          transition={isActive ? {
-            duration: 1,
+          transition={isActive || isReady ? {
+            duration: isActive ? 1 : 1.8,
             repeat: Infinity,
             ease: 'easeInOut'
           } : { duration: 0.2 }}

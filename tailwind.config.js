@@ -7,7 +7,7 @@ module.exports = {
         extend: {
             fontFamily: {
                 sans: ["var(--font-geist-sans)"],
-                mono: ["var(--font-geist-mono)"],
+                mono: ["var(--font-terminal)", "var(--font-geist-mono)"],
             },
             colors: {
                 sapphire: 'hsl(210, 100%, 50%)',

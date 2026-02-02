@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Check, Copy, Play, Zap, FileCode2, FileJson, Terminal, Palette, Code2, Braces, FileCode, ExternalLink } from 'lucide-react';
+import { Check, Copy, Play, Zap, FileCode2, FileJson, Terminal, Palette, Code2, Braces, FileCode, ExternalLink, GripVertical } from 'lucide-react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import clsx from 'clsx';
@@ -306,6 +306,15 @@ function CodeFence({
 
     const glowClass = getGlowClass(language);
     const lines = value.split('\n');
+    const handleDragStart = (e: React.DragEvent<HTMLButtonElement>) => {
+        e.dataTransfer.effectAllowed = 'copy';
+        e.dataTransfer.setData('application/x-llm-code-block', JSON.stringify({
+            content: value,
+            language: language || 'text',
+            filePath: resolvedPath,
+        }));
+        e.dataTransfer.setData('text/plain', value);
+    };
     const showLineNumbers = lines.length > 2;
 
     return (
@@ -319,6 +328,16 @@ function CodeFence({
             {/* Editor Header */}
             <div className="flex items-center justify-between px-3 py-2 bg-white/5 border-b border-white/5">
                 <div className="flex items-center gap-3">
+                    <button
+                        type="button"
+                        className="code-fence__drag-handle"
+                        title="Drag to canvas"
+                        aria-label="Drag code block to canvas"
+                        draggable
+                        onDragStart={handleDragStart}
+                    >
+                        <GripVertical className="w-3.5 h-3.5" />
+                    </button>
                     <div className="flex gap-1.5 mr-2">
                         <div className="w-2.5 h-2.5 rounded-full bg-red-500/20 group-hover/editor:bg-red-500/50 transition-colors" />
                         <div className="w-2.5 h-2.5 rounded-full bg-amber-500/20 group-hover/editor:bg-amber-500/50 transition-colors" />
@@ -408,7 +427,7 @@ export function MarkdownMessage({ content, className, timestampLabel, showTimest
                         return wrapTimestamp(<ol className="mb-4 last:mb-0 ml-6 list-decimal space-y-1">{children}</ol>);
                     },
                     h1({ children }) { return wrapTimestamp(<h1 className="text-[18px] font-bold text-[var(--text-primary)] mt-6 mb-4">{children}</h1>); },
-                    h2({ children }) { return wrapTimestamp(<h2 className="text-[16px] font-bold text-[var(--text-primary)] mt-5 mb-3">{children}</h2>); },
+                    h2({ children }) { return wrapTimestamp(<h2 className="text-[1.25rem] font-bold text-[var(--text-primary)] mt-5 mb-3 tracking-[-0.01em]">{children}</h2>); },
                     h3({ children }) { return wrapTimestamp(<h3 className="text-[16px] font-bold text-[var(--text-primary)] mt-4 mb-2">{children}</h3>); },
                     a({ children, href }) {
                         return (
@@ -437,7 +456,7 @@ export function MarkdownMessage({ content, className, timestampLabel, showTimest
                         if (!isBlock) {
                             return (
                                 <code
-                                    className="px-1.5 py-0.5 rounded bg-white/10 border border-white/5 text-emerald-300 font-mono text-[0.9em]"
+                                    className="markdown-inline-code px-1.5 py-0.5 rounded bg-white/10 border border-white/5 text-[var(--accent-secondary)] font-mono text-[0.9em]"
                                     {...props}
                                 >
                                     {children}
