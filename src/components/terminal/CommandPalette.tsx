@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Search, ChevronLeft, Settings, Plus, FileText, Terminal, Users, Clock, Zap } from 'lucide-react';
 
-type ViewType = 'main' | 'sessions' | 'agents';
+type ViewType = 'main' | 'sessions' | 'agents' | 'history';
 
 interface Session {
   id: string;
@@ -39,6 +39,7 @@ interface RecentItem {
 
 interface CommandPaletteProps {
   isOpen: boolean;
+  initialView?: ViewType;
   onClose: () => void;
   onExecuteShell: (command: string) => void;
   onExecuteAgent: (prompt: string) => void;
@@ -62,6 +63,7 @@ interface CommandPaletteProps {
 
 export function CommandPalette({
   isOpen,
+  initialView,
   onClose,
   onExecuteShell,
   onExecuteAgent,
@@ -91,11 +93,11 @@ export function CommandPalette({
   useEffect(() => {
     if (isOpen) {
       setQuery('');
-      setView('main');
+      setView(initialView ?? 'main');
       setSelectedIndex(0);
       setTimeout(() => inputRef.current?.focus(), 50);
     }
-  }, [isOpen]);
+  }, [isOpen, initialView]);
 
   // Close on escape
   useEffect(() => {
@@ -125,7 +127,7 @@ export function CommandPalette({
   const navigationCommands: CommandItem[] = useMemo(() => [
     { id: 'sessions', label: 'Sessions', hint: 'List & switch runs', shortcut: '⌘⇧S', icon: <Clock className="w-4 h-4" />, action: () => setView('sessions') },
     { id: 'agents', label: 'Agents', hint: 'Switch role', shortcut: '⌘⇧R', icon: <Users className="w-4 h-4" />, action: () => setView('agents') },
-    { id: 'history', label: 'History', hint: 'Full command history', shortcut: '⌘Y', icon: <Terminal className="w-4 h-4" />, action: () => {} },
+    { id: 'history', label: 'History', hint: 'Full command history', shortcut: '⌘Y', icon: <Terminal className="w-4 h-4" />, action: () => setView('history') },
   ], []);
 
   const engineerLabel = agents.find((agent) => agent.id === 'BUILD')?.name || 'Engineer';
@@ -153,6 +155,12 @@ export function CommandPalette({
       item.content.toLowerCase().includes(q)
     ).slice(0, 5);
   }, [recentItems, query, queryMode]);
+
+  const filteredHistory = useMemo(() => {
+    if (!query) return recentItems;
+    const q = query.toLowerCase();
+    return recentItems.filter(item => item.content.toLowerCase().includes(q));
+  }, [recentItems, query]);
 
   const filteredPrimary = useMemo(() => {
     if (queryMode !== 'search') return [];
@@ -189,13 +197,16 @@ export function CommandPalette({
     if (view === 'agents') {
       return agents.map(a => ({ itemType: 'agent' as const, ...a }));
     }
+    if (view === 'history') {
+      return filteredHistory.map(item => ({ itemType: 'recent' as const, ...item }));
+    }
     return [
       ...filteredRecent.map(r => ({ itemType: 'recent' as const, ...r })),
       ...filteredPrimary.map(p => ({ itemType: 'action' as const, ...p })),
       ...filteredNav.map(n => ({ itemType: 'nav' as const, ...n })),
       ...filteredActions.map(a => ({ itemType: 'action' as const, ...a })),
     ];
-  }, [view, sessions, agents, filteredRecent, filteredPrimary, filteredNav, filteredActions]);
+  }, [view, sessions, agents, filteredHistory, filteredRecent, filteredPrimary, filteredNav, filteredActions]);
 
   // Reset selected index when items change
   useEffect(() => {
@@ -419,6 +430,41 @@ export function CommandPalette({
                 </span>
                 <span className="command-palette__item-shortcut">⌘↵</span>
               </div>
+            </div>
+          )}
+
+          {/* History view */}
+          {view === 'history' && (
+            <div className="command-palette__section">
+              <div className="command-palette__section-title">History</div>
+              {filteredHistory.length === 0 ? (
+                <div className="command-palette__empty">No history yet.</div>
+              ) : (
+                filteredHistory.map((item, idx) => {
+                  const isSelected = selectedIndex === idx;
+                  const itemClass = isSelected
+                    ? 'command-palette__item command-palette__item--selected'
+                    : 'command-palette__item';
+                  const prefixClass = item.type === 'shell'
+                    ? 'text-[var(--accent-emerald)]'
+                    : item.type === 'agent'
+                      ? 'text-[var(--accent-violet)]'
+                      : 'text-[var(--text-secondary)]';
+                  return (
+                    <div
+                      key={item.id}
+                      className={itemClass}
+                      onClick={() => handleSelect(idx)}
+                    >
+                      <span className={`font-mono text-sm ${prefixClass}`}>
+                        {item.type === 'shell' ? '>' : item.type === 'agent' ? '@' : '•'}
+                      </span>
+                      <span className="command-palette__item-label truncate">{item.content}</span>
+                      <span className="command-palette__item-hint">{item.timestamp}</span>
+                    </div>
+                  );
+                })
+              )}
             </div>
           )}
 

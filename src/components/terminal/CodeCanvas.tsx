@@ -25,6 +25,8 @@ export function CodeCanvas({ isOpen, onClose }: CodeCanvasProps) {
   const canvasRef = useRef<HTMLDivElement>(null);
 
   const handleDragStart = (e: React.DragEvent, blockId: string) => {
+    e.dataTransfer.setData('text/plain', blockId);
+    e.dataTransfer.effectAllowed = 'move';
     setDraggedBlock(blockId);
     const block = blocks.find(b => b.id === blockId);
     if (block) {
@@ -37,13 +39,54 @@ export function CodeCanvas({ isOpen, onClose }: CodeCanvasProps) {
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
+    if (e.dataTransfer.types.includes('application/x-llm-code-block')) {
+      e.dataTransfer.dropEffect = 'copy';
+    } else {
+      e.dataTransfer.dropEffect = 'move';
+    }
   };
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
-    if (!draggedBlock || !canvasRef.current) return;
+    if (!canvasRef.current) return;
 
     const rect = canvasRef.current.getBoundingClientRect();
+    const payload = e.dataTransfer.getData('application/x-llm-code-block');
+
+    if (payload) {
+      try {
+        const parsed = JSON.parse(payload) as { content?: string; language?: string; filePath?: string };
+        if (parsed && typeof parsed.content === 'string') {
+          const content = parsed.content;
+          const label = parsed.filePath || parsed.language || 'text';
+          const lines = content.split('\n');
+          const longestLine = lines.reduce((max, line) => Math.max(max, line.length), 0);
+          const width = Math.min(Math.max(260, longestLine * 7 + 80), 520);
+          const height = Math.min(Math.max(160, lines.length * 18 + 80), 420);
+          const x = Math.max(8, Math.min(rect.width - width - 8, e.clientX - rect.left - width / 2));
+          const y = Math.max(8, Math.min(rect.height - height - 8, e.clientY - rect.top - 24));
+
+          setBlocks(prev => ([
+            ...prev,
+            {
+              id: `block-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+              content,
+              language: label,
+              x,
+              y,
+              width,
+              height,
+            },
+          ]));
+          return;
+        }
+      } catch (err) {
+        console.warn('Invalid code block payload', err);
+      }
+    }
+
+    if (!draggedBlock) return;
+
     const x = e.clientX - rect.left - dragOffset.x;
     const y = e.clientY - rect.top - dragOffset.y;
 

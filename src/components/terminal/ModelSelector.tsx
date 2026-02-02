@@ -80,6 +80,7 @@ export function ModelSelector({
   const allModels = [...localModels, ...apiModels];
   const currentModelInfo = allModels.find(m => m.id === currentModel);
   const displayName = currentModelInfo?.name || currentModel;
+  const currentModelType = currentModelInfo?.type ?? 'local';
 
   const handleSelect = (modelId: string) => {
     onSelectModel(modelId);
@@ -98,6 +99,7 @@ export function ModelSelector({
       >
         <Zap className="w-3.5 h-3.5 text-[var(--accent-sky)]" />
         {statusIcon}
+        <span className={`model-dot ${currentModelType === 'api' ? 'model-dot--api' : 'model-dot--local'}`} />
         <span className="text-xs font-medium text-[var(--text-primary)] max-w-[120px] truncate">
           {displayName}
         </span>
@@ -130,6 +132,7 @@ export function ModelSelector({
                     <Check className="w-4 h-4 text-[var(--accent-emerald)]" />
                   )}
                 </div>
+                <span className={`model-dot ${model.type === 'api' ? 'model-dot--api' : 'model-dot--local'}`} />
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium text-[var(--text-primary)] truncate">
                     {model.name}
@@ -162,6 +165,7 @@ export function ModelSelector({
                     <Check className="w-4 h-4 text-[var(--accent-emerald)]" />
                   )}
                 </div>
+                <span className={`model-dot ${model.type === 'api' ? 'model-dot--api' : 'model-dot--local'}`} />
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium text-[var(--text-primary)] truncate">
                     {model.name}

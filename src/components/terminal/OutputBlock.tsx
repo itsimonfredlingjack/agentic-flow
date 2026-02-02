@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, type Transition } from 'framer-motion';
-import { ChevronDown, Check, AlertTriangle, Loader2, Copy, Play } from 'lucide-react';
+import { ChevronDown, Check, AlertTriangle, Loader2, Copy, Play, Share2 } from 'lucide-react';
 import { MarkdownMessage } from '@/components/MarkdownMessage';
 import { FileTreeBlock, isFileTreeContent } from './FileTreeBlock';
 import type { RoleId } from './RoleSelector';
@@ -80,7 +80,7 @@ export function OutputBlock({
         animate={{ scale: 1, rotate: 0 }}
         transition={snapSpring}
       >
-        <Check className="w-3.5 h-3.5 text-[var(--accent-emerald)]" />
+        <Check className="w-3.5 h-3.5 text-[var(--accent-success-soft)]" />
       </motion.div>
     ),
     error: (
@@ -107,6 +107,12 @@ export function OutputBlock({
     : 'text-[var(--accent-violet)]';
 
   const roleClass = agentRole ? `output-block__role output-block__role--${agentRole.toLowerCase()}` : '';
+  const headerRoleClass = agentRole ? `output-block__header--${agentRole.toLowerCase()}` : '';
+  const headerClasses = [
+    'output-block__header',
+    headerRoleClass,
+    'flex items-center gap-2 px-3 py-2 cursor-pointer select-none transition-colors',
+  ].filter(Boolean).join(' ');
   const statusLabel = status === 'idle' ? 'idle' : status;
 
   const handleCopy = async (e: React.MouseEvent) => {
@@ -128,6 +134,24 @@ export function OutputBlock({
     e.preventDefault();
     e.stopPropagation();
     onApply?.();
+  };
+
+  const handleShare = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!content) return;
+
+    try {
+      if (navigator.share) {
+        await navigator.share({ text: content });
+      } else {
+        await navigator.clipboard.writeText(content);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }
+    } catch (err) {
+      console.error('Failed to share:', err);
+    }
   };
 
   // Content type detection
@@ -194,14 +218,14 @@ export function OutputBlock({
     <motion.div
       className={blockClasses}
       data-block-id={id}
-      initial={{ opacity: 0, y: 12, scale: 0.98 }}
+      initial={{ opacity: 0, y: 8, scale: 0.98 }}
       animate={getAnimateProps()}
       transition={snapSpring}
       layout
     >
       {/* Header */}
       <div
-        className="flex items-center gap-2 px-3 py-2 bg-[var(--bg-elevated)] border-b border-[var(--border-subtle)] cursor-pointer select-none hover:bg-[var(--bg-elevated)]/80 transition-colors"
+        className={headerClasses}
         onClick={() => setCollapsed(!collapsed)}
         role="button"
         tabIndex={0}
@@ -220,6 +244,7 @@ export function OutputBlock({
         <span className="flex-1 font-mono text-sm text-[var(--text-primary)] truncate">{command}</span>
 
         <div className="flex items-center gap-2 text-[var(--text-tertiary)]">
+          {timestamp && <span className="output-block__timestamp">[{timestamp}]</span>}
           <span className={`output-block__status output-block__status--${status}`}>{statusLabel}</span>
           {duration !== undefined && (
             <span className="text-xs">{(duration / 1000).toFixed(1)}s</span>
@@ -243,13 +268,13 @@ export function OutputBlock({
           animate={{ opacity: 1, y: 0 }}
           transition={gentleSpring}
         >
-          <div ref={contentRef} className="p-3 overflow-x-auto">
+          <div ref={contentRef} className="px-3 pt-2 pb-4 overflow-x-auto">
             {contentElement}
           </div>
 
           {/* Actions bar */}
           {content && (
-            <div className="flex gap-2 px-3 py-2 border-t border-[var(--border-subtle)]">
+            <div className="output-block__actions flex gap-2 px-3 py-2 border-t border-[var(--border-subtle)]">
               <motion.button
                 type="button"
                 className={`
